@@ -99,6 +99,14 @@ async function sendPhoto(id, file) {
 }
 async function loadMerchant() {
   const m = await api('merchant/me');
+  // Le formulaire d'ajout n'apparaît qu'après paiement de l'abonnement mensuel ET de la capacité d'articles
+  const prixTier = fmt(tier(10)), abo = 'Standard ' + fmt(3000) + ' ou Premium ' + fmt(5000);
+  let need = '';
+  if (!m.plan && !m.quota) need = 'Pour ajouter vos articles, payez d\'abord : 1) l\'abonnement mensuel (' + abo + ') et 2) la capacité d\'articles (par exemple 10 articles = ' + prixTier + ').';
+  else if (!m.plan) need = 'Il reste à payer l\'abonnement mensuel (' + abo + ') pour pouvoir ajouter des articles.';
+  else if (!m.quota) need = 'Il reste à payer la capacité d\'articles (par exemple 10 articles = ' + prixTier + ') pour pouvoir ajouter des articles.';
+  else if (m.quota <= m.used) need = 'Vous avez atteint votre capacité de ' + m.quota + ' articles. Payez un palier supérieur pour en ajouter.';
+  $('#addBox').hidden = need !== ''; $('#payFirst').hidden = need === ''; $('#payFirst').textContent = need;
   $('#quota').textContent = (m.validated ? '' : 'Compte en attente de validation. ') + (m.plan ? 'Abonnement ' + m.plan + ' jusqu\'au ' + new Date(m.plan_expires_at).toLocaleDateString('fr-FR') : 'Aucun abonnement mensuel actif : vos articles sont masqués') + ' · Articles en ligne : ' + m.used + ' / ' + m.quota;
   $('#tier').replaceChildren(...[10, 20, 30, 40, 50, 100].map(n => el('option', { value: n }, n + ' articles - ' + fmt(tier(n)))));
   const list = await api('merchant/articles');

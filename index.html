@@ -67,9 +67,11 @@ label.btn{display:inline-block;padding:10px 16px;margin:4px 4px 4px 0;font-weigh
 <section id="merchant" hidden><h2>Espace commerçant</h2>
 <p id="quota"></p>
 <h3>Abonnement mensuel</h3>
-<button id="planStd">Standard - 3 000 francs / mois</button> <button id="planPre">Premium - 5 000 francs / mois (articles affichés en premier)</button>
+<button id="planStd">Abonnement Standard - 3 000 francs</button> <button id="planPre">Abonnement Premium - 5 000 francs</button>
 <h3>Capacité d'articles (paiement séparé)</h3>
 <select id="tier"></select> <button id="pay">Payer ce palier avec Wave</button>
+<p id="payFirst" class="small" hidden></p>
+<div id="addBox" hidden>
 <h3>Ajouter un article</h3>
 <input id="an" placeholder="Nom"><input id="ap" type="number" placeholder="Prix"><input id="as" type="number" placeholder="Stock"><br>
 <input id="ad" placeholder="Description"><br>
@@ -77,6 +79,7 @@ label.btn{display:inline-block;padding:10px 16px;margin:4px 4px 4px 0;font-weigh
 <label class="small">Photo de l'article</label><br><input id="aphoto" type="file" accept="image/*"><br><img id="apreview" class="prev" alt="Aperçu" hidden><br>
 <label><input id="legal" type="checkbox"> Je certifie que ce produit est légal à la vente en Côte d'Ivoire</label><br>
 <button id="add">Ajouter</button>
+</div>
 <div id="mine"></div>
 <h3>Commandes reçues</h3><div id="morders"></div></section>
 

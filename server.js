@@ -36,7 +36,7 @@ app.use(cookie());
 const path = require('path');
 const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style.css', 'admin.css'];
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
-app.get('/version', (req, res) => res.type('text').send('version-email-2026-10-23'));
+app.get('/version', (req, res) => res.type('text').send('version-paiement-2026-10-23'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
 for (const n of pagesPubliques) app.get('/' + n, (req, res) => { const f = trouver(n); f ? res.sendFile(f) : res.status(404).end(); });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -365,13 +365,13 @@ app.post('/api/merchant/articles', auth('merchant'), wrap(async (req, res) => {
     const q = (await c.query("SELECT quota FROM subscriptions WHERE merchant_id=$1 AND status='active' ORDER BY id DESC LIMIT 1", [req.user.id])).rows[0];
     if (!(await c.query("SELECT 1 FROM plans WHERE merchant_id=$1 AND status='active' AND expires_at>now()", [req.user.id])).rowCount) return { noPlan: true };
     const used = (await c.query('SELECT count(*)::int n FROM articles WHERE merchant_id=$1 AND online', [req.user.id])).rows[0].n;
-    if (!q || used >= q.quota) return { blocked: true, next: price((q ? q.quota : 0) + 10) };
+    if (!q || used >= q.quota) return { blocked: true, noQuota: !q, next: price((q ? q.quota : 0) + 10) };
     const a = await c.query('INSERT INTO articles(merchant_id,name,description,category,details,price,stock) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',
       [req.user.id, d.name, d.description || null, d.category || null, d.details || null, d.price, d.stock]);
     return { id: a.rows[0].id };
   });
   if (out.noPlan) return res.status(402).json({ error: 'Abonnement mensuel requis (Standard 3000 ou Premium 5000 francs)' });
-  if (out.blocked) return res.status(402).json({ error: 'Quota atteint : passez au palier supérieur', nextTierPrice: out.next });
+  if (out.blocked) return res.status(402).json({ error: out.noQuota ? 'Payez d\'abord la capacité d\'articles (10 articles = ' + price(10) + ' francs)' : 'Quota atteint : passez au palier supérieur', nextTierPrice: out.next });
   res.status(201).json(out);
 }));
 
