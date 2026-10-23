@@ -118,11 +118,23 @@ async function loadMerchant() {
 }
 
 $('#go').onclick = run(search);
-$('#login').onclick = run(async () => { await api('login', 'POST', { email: $('#email').value, password: $('#password').value }); await refresh(); });
+const welcome = (extra) => {
+  if (!me) return;
+  say('Bienvenue ' + me.name + ' ! Vous êtes connecté.' + (extra ? ' ' + extra : ''));
+  const e = $(me.role === 'merchant' ? '#merchant' : '#myorders');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (e && !e.hidden) setTimeout(() => e.scrollIntoView({ behavior: 'smooth' }), 300);
+};
+$('#login').onclick = run(async () => { await api('login', 'POST', { email: $('#email').value, password: $('#password').value }); await refresh(); welcome(); });
 $('#register').onclick = run(async () => {
   await api('register', 'POST', { role: $('#role').value, name: $('#name').value, email: $('#remail').value, phone: $('#phone').value || undefined,
     password: $('#rpassword').value, shopName: $('#shop').value || undefined, location: $('#loc').value || undefined });
-  say('Compte créé ! Vous pouvez maintenant vous connecter avec le même e-mail et mot de passe.');
+  const estCommercant = $('#role').value === 'merchant';
+  try {
+    await api('login', 'POST', { email: $('#remail').value, password: $('#rpassword').value });
+    await refresh();
+    welcome(estCommercant ? 'Votre boutique sera visible après validation par l\'administrateur et paiement du forfait mensuel.' : '');
+  } catch { say('Compte créé ! Connectez-vous avec le même e-mail et mot de passe.'); }
 });
 $('#logout').onclick = run(async () => { await api('logout', 'POST', {}); await refresh(); });
 $('#order').onclick = run(async () => {
