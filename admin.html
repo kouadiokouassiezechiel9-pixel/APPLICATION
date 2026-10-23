@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Administration</title>
+<style>
+:root{color-scheme:dark}
+body{font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:16px;line-height:1.5;background:#0e1411;color:#e9f0ea}
+h1,h2{color:#1fb574}
+input,button{padding:10px 12px;margin:4px 4px 4px 0;font:inherit;border-radius:8px;border:1px solid #2b3b32}
+input{background:#0e1411;color:#e9f0ea}
+input:focus{outline:2px solid #1fb574}
+button{background:#1fb574;color:#04150c;border:0;font-weight:600;cursor:pointer}
+button:hover{background:#17975f}
+.row{background:#17211b;border:1px solid #2b3b32;border-radius:8px;padding:10px;margin:6px 0}
+code{background:#1d2a23;color:#ff9a1f;padding:2px 6px;border-radius:4px;word-break:break-all}
+</style></head><body>
+<h1>Administration</h1>
+<div id="login">
+ <input id="email" type="email" placeholder="E-mail"><br>
+ <input id="password" type="password" placeholder="Mot de passe"><br>
+ <button id="go">Continuer</button></div>
+<div id="step2" hidden>
+ <p id="setup" hidden>Première connexion : dans votre application d'authentification (Google Authenticator, Authy...), ajoutez un compte par saisie manuelle avec cette clé : <code id="secret"></code></p>
+ <input id="code" inputmode="numeric" maxlength="6" placeholder="Code à 6 chiffres"><br>
+ <button id="verify">Valider</button></div>
+<div id="dash" hidden>
+ <button id="logout">Déconnexion</button>
+ <h2>Statistiques</h2><p id="stats"></p>
+ <h2>Commerçants en attente</h2><div id="pending"></div>
+ <h2>Produits (modération)</h2><div id="arts"></div>
+ <h2>Utilisateurs</h2><div id="users"></div></div>
+<script src="/admin.js"></script></body></html>
