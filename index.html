@@ -45,12 +45,12 @@ label.btn{display:inline-block;padding:10px 16px;margin:4px 4px 4px 0;font-weigh
 <header><h1>Marketplace</h1><div><span id="who"></span> <button id="logout" hidden>Déconnexion</button></div></header>
 
 <section id="auth"><h2>Connexion / Inscription</h2>
-<input id="email" type="email" placeholder="E-mail"><br>
-<input id="password" type="password" placeholder="Mot de passe (10 caractères min.)"><br>
+<input id="email" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br>
+<input id="password" type="password" placeholder="Mot de passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br>
 <button id="login">Se connecter</button>
 <details><summary>Créer un compte</summary>
 <select id="role"><option value="client">Client</option><option value="merchant">Commerçant</option></select><br>
-<input id="name" placeholder="Nom"><br><input id="remail" type="email" placeholder="E-mail"><br><input id="rpassword" type="password" placeholder="Mot de passe (10 caractères min.)"><br><input id="phone" placeholder="Téléphone"><br>
+<input id="name" placeholder="Nom"><br><input id="remail" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="rpassword" type="password" placeholder="Mot de passe (10 caractères min.)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="phone" placeholder="Téléphone"><br>
 <input id="shop" placeholder="Nom de la boutique (commerçant)"><br><input id="loc" placeholder="Localisation (commerçant)"><br>
 <button id="register">Créer le compte</button></details></section>
 

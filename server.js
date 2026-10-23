@@ -36,7 +36,7 @@ app.use(cookie());
 const path = require('path');
 const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style.css', 'admin.css'];
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
-app.get('/version', (req, res) => res.type('text').send('version-connexion-2026-10-23'));
+app.get('/version', (req, res) => res.type('text').send('version-email-2026-10-23'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
 for (const n of pagesPubliques) app.get('/' + n, (req, res) => { const f = trouver(n); f ? res.sendFile(f) : res.status(404).end(); });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -81,8 +81,8 @@ const setCookie = (res, u) => res.cookie('t',
 app.post('/api/register', limiter, wrap(async (req, res) => {
   const d = parse(z.object({
     role: z.enum(['client', 'merchant']),
-    name: z.string().min(2).max(80), email: z.string().email().max(120),
-    phone: z.string().max(30).optional(), password: z.string().min(10).max(200),
+    name: z.string().trim().min(2).max(80), email: z.string().trim().email().max(120),
+    phone: z.string().trim().max(30).optional(), password: z.string().trim().min(10).max(200),
     shopName: z.string().min(2).max(80).optional(), location: z.string().max(120).optional(),
   }), req, res);
   if (!d) return;
@@ -97,16 +97,17 @@ app.post('/api/register', limiter, wrap(async (req, res) => {
     });
     res.status(201).json({ ok: true });
   } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'E-mail déjà utilisé' });
+    if (e.code === '23505') return res.status(409).json({ error: 'Cet e-mail a déjà un compte. Utilisez le bloc Connexion avec cet e-mail et votre mot de passe.' });
     throw e;
   }
 }));
 
 const login = admin => wrap(async (req, res) => {
-  const d = parse(z.object({ email: z.string().email().max(120), password: z.string().max(200) }), req, res);
+  const d = parse(z.object({ email: z.string().trim().email().max(120), password: z.string().max(200) }), req, res);
   if (!d) return;
   const u = (await pool.query('SELECT * FROM users WHERE email=lower($1)', [d.email])).rows[0];
-  const ok = u && (u.role === 'admin') === admin && await bcrypt.compare(d.password, u.password_hash);
+  const mdpOk = async () => await bcrypt.compare(d.password, u.password_hash) || (d.password !== d.password.trim() && await bcrypt.compare(d.password.trim(), u.password_hash));
+  const ok = u && (u.role === 'admin') === admin && await mdpOk();
   if (!ok || u.status !== 'active') return res.status(401).json({ error: 'Identifiants incorrects' });
   setCookie(res, u); res.json({ ok: true });
 });
@@ -134,7 +135,7 @@ const ck = { httpOnly: true, sameSite: 'strict', secure: prod };
 
 // Étape 1 : e-mail + mot de passe
 app.post('/api/admin/login', adminLimiter, wrap(async (req, res) => {
-  const d = parse(z.object({ email: z.string().email().max(120), password: z.string().max(200) }), req, res);
+  const d = parse(z.object({ email: z.string().trim().email().max(120), password: z.string().max(200) }), req, res);
   if (!d) return;
   const u = (await pool.query("SELECT * FROM users WHERE email=lower($1) AND role='admin'", [d.email])).rows[0];
   if (!u || u.status !== 'active' || !(await bcrypt.compare(d.password, u.password_hash)))

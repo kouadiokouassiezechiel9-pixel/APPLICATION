@@ -125,13 +125,13 @@ const welcome = (extra) => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (e && !e.hidden) setTimeout(() => e.scrollIntoView({ behavior: 'smooth' }), 300);
 };
-$('#login').onclick = run(async () => { await api('login', 'POST', { email: $('#email').value, password: $('#password').value }); await refresh(); welcome(); });
+$('#login').onclick = run(async () => { await api('login', 'POST', { email: $('#email').value.trim().toLowerCase(), password: $('#password').value }); await refresh(); welcome(); });
 $('#register').onclick = run(async () => {
-  await api('register', 'POST', { role: $('#role').value, name: $('#name').value, email: $('#remail').value, phone: $('#phone').value || undefined,
-    password: $('#rpassword').value, shopName: $('#shop').value || undefined, location: $('#loc').value || undefined });
+  await api('register', 'POST', { role: $('#role').value, name: $('#name').value, email: $('#remail').value.trim().toLowerCase(), phone: $('#phone').value || undefined,
+    password: $('#rpassword').value.trim(), shopName: $('#shop').value || undefined, location: $('#loc').value || undefined });
   const estCommercant = $('#role').value === 'merchant';
   try {
-    await api('login', 'POST', { email: $('#remail').value, password: $('#rpassword').value });
+    await api('login', 'POST', { email: $('#remail').value.trim().toLowerCase(), password: $('#rpassword').value.trim() });
     await refresh();
     welcome(estCommercant ? 'Votre boutique sera visible après validation par l\'administrateur et paiement du forfait mensuel.' : '');
   } catch { say('Compte créé ! Connectez-vous avec le même e-mail et mot de passe.'); }
