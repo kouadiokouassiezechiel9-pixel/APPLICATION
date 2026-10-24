@@ -22,8 +22,8 @@ input:focus,select:focus{outline:1px solid var(--acc);border-color:var(--acc)}
 input[type=checkbox]{margin-right:6px;accent-color:var(--acc)}
 button,label.btn{display:inline-block;font:700 .8rem var(--sans);text-transform:uppercase;letter-spacing:.02em;padding:12px 18px;margin:4px 6px 4px 0;border:0;color:var(--acc);background:#0e0f14;box-shadow:inset 0 0 0 1px var(--acc);clip-path:polygon(0 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%);cursor:pointer;transition:background 250ms var(--ease),color 250ms var(--ease)}
 button:hover,label.btn:hover{background:var(--acc);color:#090a0b}
-#order,#ckOk,#pay,#login,#register,#go,#add,#planStd,#planPre{background:var(--acc);color:#090a0b}
-#order:hover,#ckOk:hover,#pay:hover,#login:hover,#register:hover,#go:hover,#add:hover,#planStd:hover,#planPre:hover{background:#fff}
+#order,#ckOk,#pay,#login,#register,#go,#add,#planStd,#planPre,#shSave{background:var(--acc);color:#090a0b}
+#order:hover,#ckOk:hover,#pay:hover,#login:hover,#register:hover,#go:hover,#add:hover,#planStd:hover,#planPre:hover,#shSave:hover{background:#fff}
 #logout,#ckCancel,#chClose,label.btn{color:var(--txt);box-shadow:inset 0 0 0 1px var(--line)}
 #logout:hover,#ckCancel:hover,#chClose:hover,label.btn:hover{background:var(--line);color:var(--txt)}
 button:disabled{opacity:.5;cursor:wait}
@@ -50,6 +50,16 @@ dialog input,dialog select{width:100%}
 .stars{color:var(--acc);letter-spacing:.12em}
 #modeBar{margin:14px 0}
 #modeBar button.on{background:var(--acc);color:#090a0b}
+#rayons{max-width:760px}
+#rayonGrid button{display:block;width:100%;text-align:left;padding:14px;margin:0}
+#rayonBar b{color:var(--acc)}
+textarea{width:100%;padding:11px 12px;margin:4px 0;font:inherit;color:var(--txt);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:2px;resize:vertical}
+textarea:focus{outline:1px solid var(--acc);border-color:var(--acc)}
+.logo{width:80px;height:80px;object-fit:contain;background:#fff;padding:4px;display:block;margin-bottom:8px}
+.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:6px 0}
+.desc{white-space:pre-wrap}
+#shopInfo{max-width:560px}
+#logoBox{margin:8px 0}
 </style></head><body>
 <canvas id="contours" aria-hidden="true"></canvas>
 <div id="toast" hidden role="status"></div>
@@ -63,11 +73,12 @@ dialog input,dialog select{width:100%}
 <button id="login">Se connecter</button> <button id="toRegister">Créer un compte</button></div>
 <div id="registerBox" hidden><h3>Créer un compte</h3>
 <select id="role"><option value="client">Client</option><option value="merchant">Commerçant</option></select><br>
-<input id="name" placeholder="Nom"><br><input id="remail" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="rpassword" type="password" placeholder="Mot de passe (10 caractères min.)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="phone" placeholder="Téléphone"><br>
+<input id="name" placeholder="Nom"><br><input id="remail" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="rpassword" type="password" placeholder="Mot de passe (8 caractères min.)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="phone" placeholder="Téléphone"><br>
 <div id="merchantFields" hidden><input id="shop" placeholder="Nom de la boutique (commerçant)"><br><input id="loc" placeholder="Localisation (commerçant)"><br></div>
 <button id="register">Créer le compte</button> <button id="toLogin">J'ai déjà un compte</button></div></section>
 
 <section id="searchBox" hidden><h2>Rechercher un article</h2>
+<p id="rayonBar" class="small">Rayon : <b id="rayonName">Tous les rayons</b> <button id="rayonBtn">Changer de rayon</button></p>
 <input id="q" placeholder="Rechercher..."> <button id="go">Chercher</button> <button id="shopsBtn">Voir les boutiques disponibles</button>
 <div id="shopBanner" class="small" hidden></div>
 <div id="shops" class="grid" hidden></div>
@@ -82,6 +93,16 @@ dialog input,dialog select{width:100%}
 <section id="merchant" hidden><h2>Espace commerçant</h2>
 <p id="quota"></p>
 <div id="starsBox"></div>
+<h3>Ma boutique</h3>
+<p class="small">Présentez votre boutique : c'est ce que les clients voient dans « Voir les boutiques disponibles ».</p>
+<div id="logoBox"><img id="logoPrev" class="logo" alt="Logo de la boutique" hidden><br><label class="small">Logo de la boutique</label><br><input id="logoFile" type="file" accept="image/*"></div>
+<div id="shopForm">
+<input id="shName" maxlength="80" placeholder="Nom de la boutique"><br>
+<input id="shLoc" maxlength="120" placeholder="Localisation (commune, quartier, repère)"><br>
+<input id="shYears" type="number" min="0" max="100" placeholder="Depuis combien d'années ? (ex : 5)"><br>
+<textarea id="shDesc" maxlength="1000" rows="5" placeholder="Parlez de votre boutique : ce que vous vendez ou faites, depuis quand vous êtes installés, où vous êtes. Exemple : Nous sommes une boutique d'import-export de voitures installée en Côte d'Ivoire depuis plusieurs années."></textarea><br>
+<button id="shSave">Enregistrer ma boutique</button>
+</div>
 <h3>Abonnement mensuel</h3>
 <button id="planStd">Abonnement Standard - 3 000 francs</button> <button id="planPre">Abonnement Premium - 5 000 francs</button>
 <h3>Capacité d'articles (paiement séparé)</h3>
@@ -92,12 +113,20 @@ dialog input,dialog select{width:100%}
 <input id="an" placeholder="Nom"><input id="ap" type="number" placeholder="Prix"><input id="as" type="number" placeholder="Stock"><br>
 <input id="ad" placeholder="Description"><br>
 <input id="adet" placeholder="Détails de l'article (ex : pointure 43, taille M, 128 Go, rouge, 2 kg...)"><br>
+<select id="acat"><option value="">Rayon de l'article (obligatoire)</option></select><br>
 <label class="small">Photo de l'article</label><br><input id="aphoto" type="file" accept="image/*"><br><img id="apreview" class="prev" alt="Aperçu" hidden><br>
 <label><input id="legal" type="checkbox"> Je certifie que ce produit est légal à la vente en Côte d'Ivoire</label><br>
 <button id="add">Ajouter</button>
 </div>
 <div id="mine"></div>
 <h3>Commandes reçues</h3><div id="morders"></div></section>
+
+<dialog id="shopInfo"></dialog>
+
+<dialog id="rayons"><h2>Choisissez un rayon</h2>
+<p class="small">Pour optimiser votre navigation, veuillez choisir un rayon.</p>
+<div id="rayonGrid" class="grid"></div>
+<p><button id="rayonAll">Voir tous les rayons</button></p></dialog>
 
 <dialog id="checkout"><h2>Finaliser la commande</h2>
 <p id="ckTotal"></p>

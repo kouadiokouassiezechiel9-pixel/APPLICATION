@@ -71,3 +71,7 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS stars INT NOT NULL DEFAULT 1;
       score INT NOT NULL CHECK (score BETWEEN 1 AND 5), comment TEXT, created_at TIMESTAMPTZ DEFAULT now(),
       UNIQUE(order_id, merchant_id));
     CREATE INDEX IF NOT EXISTS idx_reviews_merchant ON reviews(merchant_id);
+
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS since_year INT;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS logo BYTEA;

@@ -22,6 +22,26 @@ const goPay = async r => { if (r.payUrl) location.href = r.payUrl; else await lo
 const back = new URLSearchParams(location.search).get('paiement');
 if (back) { history.replaceState(null, '', '/'); setTimeout(() => say(back === 'ok' ? 'Retour de Wave. Votre paiement est en cours de confirmation, il apparaîtra dans quelques instants (actualisez la page).' : 'Le paiement Wave n\'a pas abouti. Vous pouvez réessayer.'), 300); }
 
+// ---- Rayons (sections du marché) ----
+const ss = { get: k => { try { return sessionStorage.getItem(k) || ''; } catch { return ''; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
+let CATS = [], rayon = ss.get('rayon');
+const catLabel = id => (CATS.find(c => c.id === id) || {}).label || '';
+async function loadCats() { if (!CATS.length) CATS = await api('categories'); }
+function updateRayonBar() { $('#rayonName').textContent = rayon ? catLabel(rayon) : 'Tous les rayons'; }
+async function chooseRayon(id) {
+  rayon = id; ss.set('rayon', id); if ($('#rayons').open) $('#rayons').close();
+  updateRayonBar(); await search(); $('#results').scrollIntoView({ behavior: 'smooth' });
+}
+async function openRayons() {
+  await loadCats();
+  $('#rayonGrid').replaceChildren(...CATS.map(c => el('button', { onclick: run(async () => chooseRayon(c.id)) },
+    el('b', {}, c.label), el('br'), el('span', { className: 'small' }, c.hint + ' · ' + c.count + ' article' + (c.count > 1 ? 's' : '')))));
+  ss.set('rayonVu', '1'); $('#rayons').showModal();
+}
+async function fillCats() {
+  await loadCats(); const sel = $('#acat');
+  if (sel.options.length < 2) CATS.forEach(c => sel.append(el('option', { value: c.id }, c.label)));
+}
 let mode = 'merchant';   // un commerçant choisit : son espace, ou l'achat comme un client
 const ROLE_FR = { client: 'client', merchant: 'commerçant', admin: 'administrateur' };
 const authMode = reg => { $('#loginBox').hidden = reg; $('#registerBox').hidden = !reg; };
@@ -35,7 +55,10 @@ async function refresh() {
   $('#modeBar').hidden = !isM;
   $('#modeMerchant').className = mode === 'merchant' ? 'on' : ''; $('#modeClient').className = mode === 'client' ? 'on' : '';
   $('#searchBox').hidden = !buying; $('#cartBox').hidden = !buying;   // recherche et panier : clients, et commerçants en mode achat
-  if (buying) await search();
+  if (buying) {
+    await loadCats().catch(() => {}); updateRayonBar(); await search();
+    if (!ss.get('rayonVu')) openRayons().catch(() => {});   // message d'accueil : choisir un rayon
+  }
   $('#merchant').hidden = !(isM && mode === 'merchant');
   if (!$('#merchant').hidden) await loadMerchant();
   const talk = !!me && me.role !== 'admin';
@@ -94,16 +117,36 @@ function showBanner(name) {
   b.replaceChildren(el('span', {}, 'Articles de la boutique : ' + name + ' '),
     el('button', { onclick: run(async () => { shopFilter = 0; b.hidden = true; await search(); }) }, 'Voir tous les articles'));
 }
+async function viewShopArticles(s) {
+  shopFilter = s.id; $('#q').value = ''; $('#shops').hidden = true; showBanner(s.shop_name);
+  await search(); $('#results').scrollIntoView({ behavior: 'smooth' });
+}
+const yearsText = s => s.years == null ? '' : s.years > 0 ? 'Depuis ' + s.years + ' an' + (s.years > 1 ? 's' : '') : 'Nouvelle boutique';
+function showShopInfo(s) {
+  const d = $('#shopInfo');
+  d.replaceChildren(
+    s.has_logo ? el('img', { className: 'logo', src: '/api/shops/' + s.id + '/logo', alt: 'Logo de ' + s.shop_name }) : '',
+    el('h2', {}, s.shop_name),
+    el('p', {}, el('span', { className: 'stars' }, stars(s.stars)), s.rating ? ' ' + s.rating + '/5 (' + s.reviews + ' avis)' : ' pas encore d\'avis'),
+    el('p', { className: 'small' }, [s.location, yearsText(s)].filter(Boolean).join(' · ')),
+    s.description ? el('p', { className: 'desc' }, s.description) : el('p', { className: 'small' }, 'Cette boutique n\'a pas encore rédigé sa présentation.'),
+    el('p', {}, el('button', { onclick: run(async () => { d.close(); await viewShopArticles(s); }) }, 'Voir ses articles'), ' ',
+      el('button', { id: 'shopInfoClose', onclick: () => d.close() }, 'Fermer')));
+  d.showModal();
+}
 async function showShops() {
   const box = $('#shops');
   if (!box.hidden) { box.hidden = true; return; }
   const l = await api('shops');
   box.replaceChildren(...(l.length ? l : [null]).map(s => s ? el('div', { className: 'card' },
+    s.has_logo ? el('img', { className: 'logo', src: '/api/shops/' + s.id + '/logo', alt: 'Logo de ' + s.shop_name, loading: 'lazy' }) : '',
     el('b', {}, s.shop_name), s.premium ? el('p', { className: 'small' }, 'Premium') : '',
-    el('p', { className: 'small' }, s.location || ''),
+    el('p', { className: 'small' }, [s.location, yearsText(s)].filter(Boolean).join(' · ')),
+    s.description ? el('p', { className: 'clamp' }, s.description) : '',
     el('p', {}, el('span', { className: 'stars' }, stars(s.stars)), s.rating ? ' ' + s.rating + '/5 (' + s.reviews + ' avis)' : ' pas encore d\'avis'),
     el('p', { className: 'small' }, s.articles + ' article' + (s.articles > 1 ? 's' : '') + ' en ligne'),
-    el('button', { onclick: run(async () => { shopFilter = s.id; $('#q').value = ''; box.hidden = true; showBanner(s.shop_name); await search(); $('#results').scrollIntoView({ behavior: 'smooth' }); }) }, 'Voir ses articles'))
+    el('button', { onclick: () => showShopInfo(s) }, 'Présentation'), ' ',
+    el('button', { onclick: run(async () => viewShopArticles(s)) }, 'Voir ses articles'))
     : el('p', {}, 'Aucune boutique disponible pour le moment.')));
   box.hidden = false;
 }
@@ -121,14 +164,14 @@ function drawStars(m) {
   $('#starsBox').replaceChildren(...kids);
 }
 async function search() {
-  const list = await api('articles?q=' + encodeURIComponent($('#q').value) + (shopFilter ? '&shop=' + shopFilter : ''));
+  const list = await api('articles?q=' + encodeURIComponent($('#q').value) + (shopFilter ? '&shop=' + shopFilter : '') + (rayon ? '&category=' + rayon : ''));
   $('#results').replaceChildren(...list.map(a => el('div', { className: 'card' },
     a.has_photo ? el('img', { className: 'ph', src: '/api/articles/' + a.id + '/photo', alt: a.name, loading: 'lazy' }) : '',
-    el('b', {}, a.name), el('p', { className: 'small' }, el('span', { className: 'stars' }, stars(a.stars)), a.rating ? ' ' + a.rating + '/5' : ''), el('p', {}, a.description || ''),
+    el('b', {}, a.name), el('p', { className: 'small' }, el('span', { className: 'stars' }, stars(a.stars)), a.rating ? ' ' + a.rating + '/5' : ''), a.category ? el('p', { className: 'small' }, catLabel(a.category)) : '', el('p', {}, a.description || ''),
     a.premium ? el('p', { className: 'small' }, '★ Premium') : '', el('p', { className: 'small' }, a.details || ''),
     el('p', {}, fmt(a.price) + ' · ' + a.shop_name + ' · stock ' + a.stock),
     ...(me && a.merchant_id === me.id ? [el('p', { className: 'small' }, 'C\'est votre article')] : [
-    el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Poser une question'), ' ',
+    el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Poser une question'), ' ', el('button', { onclick: run(async () => showShopInfo(await api('shops/' + a.merchant_id))) }, 'La boutique'), ' ',
     el('button', { onclick: () => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.price, qty: 1 }); drawCart(); } }, 'Ajouter au panier')]))));
 }
 function drawCart() {
@@ -136,12 +179,12 @@ function drawCart() {
     el('button', { onclick: () => { cart = cart.filter(x => x !== c); drawCart(); } }, 'Retirer'))));
 }
 // ---- Photos : réduction dans le navigateur (max 800 px, JPEG) puis envoi ----
-async function compress(file) {
+async function compress(file, max = 800) {
   if (!file.type.startsWith('image/')) throw new Error('Choisissez une image (JPG, PNG...)');
   let bmp;
   try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
   catch { bmp = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error('Image illisible')); i.src = URL.createObjectURL(file); }); }
-  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight, k = Math.min(1, 800 / Math.max(w, h));
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight, k = Math.min(1, max / Math.max(w, h));
   const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
   const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.72));
@@ -164,6 +207,8 @@ async function loadMerchant() {
   else if (m.quota <= m.used) need = 'Vous avez atteint votre capacité de ' + m.quota + ' articles. Payez un palier supérieur pour en ajouter.';
   $('#addBox').hidden = need !== ''; $('#payFirst').hidden = need === ''; $('#payFirst').textContent = need;
   drawStars(m);
+  fillShop(m);
+  await fillCats();
   $('#quota').textContent = (m.validated ? '' : 'Compte en attente de validation. ') + (m.plan ? 'Abonnement ' + m.plan + ' jusqu\'au ' + new Date(m.plan_expires_at).toLocaleDateString('fr-FR') : 'Aucun abonnement mensuel actif : vos articles sont masqués') + ' · Articles en ligne : ' + m.used + ' / ' + m.quota;
   $('#tier').replaceChildren(...[10, 20, 30, 40, 50, 100].map(n => el('option', { value: n }, n + ' articles - ' + fmt(tier(n)))));
   const list = await api('merchant/articles');
@@ -183,6 +228,29 @@ async function loadMerchant() {
 }
 
 $('#go').onclick = run(search);
+// ---- Ma boutique (espace commerçant) ----
+let shopDirty = false;
+function fillShop(m) {
+  if (shopDirty) return;   // ne pas écraser ce que le commerçant est en train de taper
+  $('#shName').value = m.shop_name || ''; $('#shLoc').value = m.location || '';
+  $('#shYears').value = m.years == null ? '' : m.years; $('#shDesc').value = m.description || '';
+  const p = $('#logoPrev'); p.hidden = !m.has_logo; if (m.has_logo) p.src = '/api/merchant/logo?v=' + Date.now();
+}
+$('#shopForm').oninput = () => { shopDirty = true; };
+$('#shSave').onclick = run(async () => {
+  await api('merchant/profile', 'POST', { shopName: $('#shName').value, location: $('#shLoc').value || undefined,
+    description: $('#shDesc').value || undefined, years: $('#shYears').value === '' ? undefined : +$('#shYears').value });
+  shopDirty = false; say('Votre boutique a été enregistrée.'); await loadMerchant();
+});
+$('#logoFile').onchange = run(async ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  const blob = await compress(f, 400);
+  const r = await fetch('/api/merchant/logo', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'Envoi du logo impossible'); }
+  ev.target.value = ''; const p = $('#logoPrev'); p.src = '/api/merchant/logo?v=' + Date.now(); p.hidden = false; say('Logo enregistré.');
+});
+$('#rayonBtn').onclick = run(openRayons);
+$('#rayonAll').onclick = run(async () => chooseRayon(''));
 $('#toRegister').onclick = () => authMode(true);
 $('#toLogin').onclick = () => authMode(false);
 $('#role').onchange = () => { $('#merchantFields').hidden = $('#role').value !== 'merchant'; };
@@ -229,7 +297,8 @@ $('#pay').onclick = run(async () => goPay(await api('merchant/subscribe', 'POST'
 $('#aphoto').onchange = () => { const f = $('#aphoto').files[0], p = $('#apreview'); if (!f) { p.hidden = true; return; } p.src = URL.createObjectURL(f); p.hidden = false; };
 $('#add').onclick = run(async () => {
   if (!$('#legal').checked) throw new Error('Vous devez certifier que le produit est légal en Côte d\'Ivoire');
-  const created = await api('merchant/articles', 'POST', { name: $('#an').value, price: +$('#ap').value, stock: +$('#as').value, description: $('#ad').value || undefined, details: $('#adet').value || undefined, legalConfirm: $('#legal').checked });
+  if (!$('#acat').value) throw new Error('Choisissez le rayon de l\'article');
+  const created = await api('merchant/articles', 'POST', { name: $('#an').value, price: +$('#ap').value, stock: +$('#as').value, description: $('#ad').value || undefined, details: $('#adet').value || undefined, category: $('#acat').value, legalConfirm: $('#legal').checked });
   const file = $('#aphoto').files[0]; let msg = 'Article ajouté.', ok = true;
   if (file) { try { await sendPhoto(created.id, file); msg = 'Article et photo enregistrés.'; } catch (e) { msg = 'Article ajouté, mais la photo n\'a pas été envoyée : ' + e.message + ' (vous pouvez l\'ajouter depuis la liste ci-dessous).'; ok = false; } }
   $('#aphoto').value = ''; $('#apreview').hidden = true;

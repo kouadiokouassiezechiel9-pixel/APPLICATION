@@ -36,7 +36,7 @@ app.use(cookie());
 const path = require('path');
 const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style.css', 'admin.css'];
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
-app.get('/version', (req, res) => res.type('text').send('version-acces-2026-10-24'));
+app.get('/version', (req, res) => res.type('text').send('version-mdp-2026-10-24'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
 for (const n of pagesPubliques) app.get('/' + n, (req, res) => { const f = trouver(n); f ? res.sendFile(f) : res.status(404).end(); });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -48,7 +48,7 @@ const wrap = f => (req, res, next) => f(req, res, next).catch(e => {
 const parse = (schema, req, res) => {
   const r = schema.safeParse(req.body);
   if (!r.success) {
-    const noms = { name: 'Nom', email: 'E-mail', password: 'Mot de passe (10 caractères minimum)', shopName: 'Nom de la boutique', phone: 'Téléphone', location: 'Localisation', code: 'Code (6 chiffres)' };
+    const noms = { name: 'Nom', email: 'E-mail', password: 'Mot de passe (8 caractères minimum)', shopName: 'Nom de la boutique', phone: 'Téléphone', location: 'Localisation', code: 'Code (6 chiffres)', shopName: 'Nom de la boutique', description: 'Description', years: 'Années d\'existence', category: 'Rayon de l\'article' };
     const champ = r.error.issues[0] && r.error.issues[0].path[0];
     res.status(400).json({ error: 'Champ à corriger : ' + (noms[champ] || champ || 'formulaire') }); return null;
   }
@@ -82,7 +82,7 @@ app.post('/api/register', limiter, wrap(async (req, res) => {
   const d = parse(z.object({
     role: z.enum(['client', 'merchant']),
     name: z.string().trim().min(2).max(80), email: z.string().trim().email().max(120),
-    phone: z.string().trim().max(30).optional(), password: z.string().trim().min(10).max(200),
+    phone: z.string().trim().max(30).optional(), password: z.string().trim().min(8).max(200),
     shopName: z.string().min(2).max(80).optional(), location: z.string().max(120).optional(),
   }), req, res);
   if (!d) return;
@@ -258,6 +258,26 @@ const PLAN_OK = "EXISTS (SELECT 1 FROM plans pl WHERE pl.merchant_id=m.user_id A
 // Étoiles : 1 -> 3 automatique (assez d'avis et bonne moyenne) ; 3 -> 5 : confirmation de l'admin PUIS paiement
 const FIVE_STAR_FEE = 10000; // francs, prix du passage à 5 étoiles (à ajuster)
 const RULES = { minReviews: 5, minAvg: 4, fee: FIVE_STAR_FEE };
+// Rayons du marché (produits courants en Côte d'Ivoire). L'identifiant est celui qui est enregistré avec l'article.
+const CATEGORIES = [
+  { id: 'alimentation', label: 'Alimentation & boissons', hint: 'Riz, huile, attiéké, sucre, jus, bissap' },
+  { id: 'vivriers', label: 'Produits agricoles & vivriers', hint: 'Igname, manioc, banane plantain, légumes, fruits' },
+  { id: 'frais', label: 'Viandes, poissons & produits frais', hint: 'Poisson fumé, poulet, œufs, produits laitiers' },
+  { id: 'cultures', label: 'Cacao, café, anacarde & matières agricoles', hint: 'Cacao, café, anacarde, karité, hévéa, coton' },
+  { id: 'materiaux', label: 'Matériaux & matières premières', hint: 'Ciment, fer, bois, sable, tôles, tissus bruts' },
+  { id: 'electromenager', label: 'Électroménager', hint: 'Réfrigérateur, ventilateur, cuisinière, mixeur' },
+  { id: 'electronique', label: 'Téléphones, électronique & informatique', hint: 'Téléphones, télévisions, ordinateurs, accessoires' },
+  { id: 'vetements', label: 'Vêtements & pagnes', hint: 'Hommes, femmes, enfants, pagnes, tissus wax' },
+  { id: 'chaussures', label: 'Chaussures & sacs', hint: 'Sandales, baskets, sacs à main, valises' },
+  { id: 'sousvetements', label: 'Sous-vêtements & lingerie', hint: 'Slips, soutiens-gorge, chaussettes, nuisettes' },
+  { id: 'beaute', label: 'Beauté, cosmétiques & hygiène', hint: 'Beurre de karité, savon noir, parfums, soins' },
+  { id: 'maison', label: 'Maison, cuisine & mobilier', hint: 'Casseroles, matelas, chaises, rideaux, literie' },
+  { id: 'enfants', label: 'Bébé, enfants & jouets', hint: 'Vêtements bébé, jouets, fournitures scolaires' },
+  { id: 'auto', label: 'Auto, moto & pièces détachées', hint: 'Pièces, pneus, casques, accessoires' },
+  { id: 'outils', label: 'Outils, équipements & intrants agricoles', hint: 'Engrais, semences, machettes, pulvérisateurs' },
+  { id: 'autres', label: 'Autres produits', hint: 'Tout ce qui ne rentre pas dans un autre rayon' },
+];
+const CAT_IDS = CATEGORIES.map(c => c.id);
 const STOP = new Set(['pointure', 'taille', 'de', 'du', 'des', 'la', 'le', 'les', 'en', 'pour', 'a', 'au', 'un', 'une']);
 const HAY = "translate(lower(coalesce(a.name,'')||' '||coalesce(a.description,'')||' '||coalesce(a.category,'')||' '||coalesce(a.details,'')),'àâäéèêëîïôöùûüç','aaaeeeeiioouuuc')";
 app.get('/api/articles', wrap(async (req, res) => {
@@ -265,12 +285,14 @@ app.get('/api/articles', wrap(async (req, res) => {
   const params = terms.map(t => /^[0-9]+$/.test(t) ? '\\y' + t + '\\y' : '\\y' + (t.length > 3 ? t.replace(/s$/, '') : t));
   // Score = nombre de mots de la recherche trouvés (nom, description, catégorie, détails comme la pointure)
   const score = params.length ? params.map((_, k) => `(CASE WHEN ${HAY} ~* $${k + 1} THEN 1 ELSE 0 END)`).join('+') : '0';
-  const shopId = +req.query.shop || 0;
-  const shopSql = shopId ? ` AND m.user_id=$${params.length + 1}` : '';
-  const args = shopId ? [...params, shopId] : params;
+  const shopId = +req.query.shop || 0, cat = CAT_IDS.includes(req.query.category) ? req.query.category : '';
+  const args = [...params], extra = [];
+  if (shopId) { args.push(shopId); extra.push(`m.user_id=$${args.length}`); }
+  if (cat) { args.push(cat); extra.push(`COALESCE(a.category,'autres')=$${args.length}`); }
+  const shopSql = extra.length ? ' AND ' + extra.join(' AND ') : '';
   const r = await pool.query(
     `SELECT * FROM (
-       SELECT a.id,a.name,a.description,a.details,a.price,a.stock,(a.photo IS NOT NULL) AS has_photo,m.shop_name,m.user_id AS merchant_id,m.stars,
+       SELECT a.id,a.name,a.description,a.details,a.price,a.stock,a.category,(a.photo IS NOT NULL) AS has_photo,m.shop_name,m.user_id AS merchant_id,m.stars,
          (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
          EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.tier='premium' AND p.status='active' AND p.expires_at>now()) AS premium,
          (${score}) AS score
@@ -330,7 +352,9 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
 // ---------- Commerçant ----------
 app.get('/api/merchant/me', auth('merchant'), wrap(async (req, res) => {
   const r = await pool.query(
-    `SELECT m.validated, m.shop_name, m.stars, m.star_request,
+    `SELECT m.validated, m.shop_name, m.location, m.description, (m.logo IS NOT NULL) AS has_logo,
+       CASE WHEN m.since_year IS NULL THEN NULL ELSE GREATEST(0, EXTRACT(YEAR FROM now())::int - m.since_year) END AS years,
+       m.stars, m.star_request,
        (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
        (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
        COALESCE((SELECT quota FROM subscriptions WHERE merchant_id=m.user_id AND status='active' ORDER BY id DESC LIMIT 1),0) AS quota,
@@ -369,7 +393,7 @@ app.get('/api/merchant/articles', auth('merchant'), wrap(async (req, res) => {
 app.post('/api/merchant/articles', auth('merchant'), wrap(async (req, res) => {
   const d = parse(z.object({
     name: z.string().min(2).max(120), description: z.string().max(1000).optional(),
-    category: z.string().max(60).optional(), details: z.string().max(200).optional(), price: z.number().int().min(1).max(100000000),
+    category: z.enum(CAT_IDS), details: z.string().max(200).optional(), price: z.number().int().min(1).max(100000000),
     stock: z.number().int().min(0).max(1000000),
     legalConfirm: z.literal(true) }), req, res);
   if (!d) return;
@@ -506,17 +530,62 @@ app.post('/api/messages', msgLimiter, auth('client', 'merchant'), wrap(async (re
 
 // ---------- Modération des produits (admin) ----------
 // ---------- Boutiques, notes et étoiles ----------
+// Liste des rayons, avec le nombre d'articles disponibles dans chacun
+app.get('/api/categories', wrap(async (req, res) => {
+  const r = await pool.query(
+    `SELECT COALESCE(a.category,'autres') AS id, count(*)::int AS n
+     FROM articles a JOIN merchants m ON m.user_id=a.merchant_id
+     WHERE a.online AND a.moderation='ok' AND a.stock>0 AND m.validated AND ${PLAN_OK} GROUP BY 1`);
+  const n = Object.fromEntries(r.rows.map(x => [x.id, x.n]));
+  res.json(CATEGORIES.map(c => ({ ...c, count: n[c.id] || 0 })));
+}));
+// ---------- Présentation de la boutique (logo, description, localité, ancienneté) ----------
+const SHOP_COLS = `m.user_id AS id, m.shop_name, m.location, m.description, m.stars, (m.logo IS NOT NULL) AS has_logo,
+  CASE WHEN m.since_year IS NULL THEN NULL ELSE GREATEST(0, EXTRACT(YEAR FROM now())::int - m.since_year) END AS years,
+  (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
+  (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
+  (SELECT count(*)::int FROM articles a WHERE a.merchant_id=m.user_id AND a.online AND a.moderation='ok' AND a.stock>0) AS articles,
+  EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.tier='premium' AND p.status='active' AND p.expires_at>now()) AS premium`;
 app.get('/api/shops', wrap(async (req, res) => {
   const r = await pool.query(
-    `SELECT m.user_id AS id, m.shop_name, m.location, m.stars,
-       (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
-       (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
-       (SELECT count(*)::int FROM articles a WHERE a.merchant_id=m.user_id AND a.online AND a.moderation='ok' AND a.stock>0) AS articles,
-       EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.tier='premium' AND p.status='active' AND p.expires_at>now()) AS premium
-     FROM merchants m
+    `SELECT ${SHOP_COLS} FROM merchants m
      WHERE m.validated AND ${PLAN_OK}
      ORDER BY premium DESC, m.stars DESC, rating DESC NULLS LAST, m.shop_name`);
   res.json(r.rows);
+}));
+app.get('/api/shops/:id', wrap(async (req, res) => {
+  const r = (await pool.query(`SELECT ${SHOP_COLS} FROM merchants m WHERE m.user_id=$1 AND m.validated AND ${PLAN_OK}`, [+req.params.id || 0])).rows[0];
+  if (!r) return res.status(404).json({ error: 'Boutique introuvable' });
+  res.json(r);
+}));
+app.get('/api/shops/:id/logo', wrap(async (req, res) => {
+  const r = (await pool.query('SELECT logo FROM merchants WHERE user_id=$1 AND validated AND logo IS NOT NULL', [+req.params.id || 0])).rows[0];
+  if (!r) return res.status(404).end();
+  res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=300' }).send(r.logo);
+}));
+// Le commerçant voit son propre logo même avant la validation de sa boutique
+app.get('/api/merchant/logo', auth('merchant'), wrap(async (req, res) => {
+  const r = (await pool.query('SELECT logo FROM merchants WHERE user_id=$1 AND logo IS NOT NULL', [req.user.id])).rows[0];
+  if (!r) return res.status(404).end();
+  res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' }).send(r.logo);
+}));
+app.post('/api/merchant/logo', auth('merchant'), express.raw({ type: 'image/jpeg', limit: '300kb' }), wrap(async (req, res) => {
+  const b = req.body;
+  if (!Buffer.isBuffer(b) || b.length < 100 || !(b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff))
+    return res.status(400).json({ error: 'Logo invalide (format JPEG, 300 Ko maximum)' });
+  await pool.query('UPDATE merchants SET logo=$1 WHERE user_id=$2', [b, req.user.id]);
+  res.json({ ok: true });
+}));
+app.post('/api/merchant/profile', auth('merchant'), wrap(async (req, res) => {
+  const d = parse(z.object({ shopName: z.string().trim().min(2).max(80), location: z.string().trim().max(120).optional(),
+    description: z.string().trim().max(1000).optional(), years: z.number().int().min(0).max(100).optional() }), req, res);
+  if (!d) return;
+  if (isBanned(d.shopName, d.description))
+    return res.status(422).json({ error: 'Cette présentation mentionne un produit interdit à la vente en Côte d\'Ivoire.' });
+  const since = d.years === undefined ? null : new Date().getFullYear() - d.years;   // l'ancienneté reste exacte d'année en année
+  await pool.query('UPDATE merchants SET shop_name=$1, location=$2, description=$3, since_year=$4 WHERE user_id=$5',
+    [d.shopName, d.location || null, d.description || null, since, req.user.id]);
+  res.json({ ok: true });
 }));
 // Le client note la boutique une fois la commande livrée (une note par commande et par boutique)
 app.post('/api/orders/:id/review', auth('client', 'merchant'), wrap(async (req, res) => {
@@ -586,6 +655,9 @@ app.post('/api/admin/articles/:id/remove', auth('admin'), wrap(async (req, res) 
   await pool.query('ALTER TABLE articles ADD COLUMN IF NOT EXISTS photo BYTEA');
   await pool.query(`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS stars INT NOT NULL DEFAULT 1;
     ALTER TABLE merchants ADD COLUMN IF NOT EXISTS star_request TEXT NOT NULL DEFAULT 'none';
+    ALTER TABLE merchants ADD COLUMN IF NOT EXISTS description TEXT;
+    ALTER TABLE merchants ADD COLUMN IF NOT EXISTS since_year INT;
+    ALTER TABLE merchants ADD COLUMN IF NOT EXISTS logo BYTEA;
     CREATE TABLE IF NOT EXISTS reviews(
       id SERIAL PRIMARY KEY, order_id INT NOT NULL REFERENCES orders(id),
       merchant_id INT NOT NULL REFERENCES merchants(user_id), client_id INT NOT NULL REFERENCES users(id),
