@@ -26,6 +26,9 @@ async function refresh() {
   try { me = await api('me'); } catch { me = null; }
   $('#auth').hidden = !!me; $('#logout').hidden = !me;
   $('#who').textContent = me ? me.name + ' (' + me.role + ')' : '';
+  const client = !!me && me.role === 'client';
+  $('#searchBox').hidden = !client; $('#cartBox').hidden = !client;   // recherche et panier : clients connectés seulement
+  if (client) await search();
   $('#merchant').hidden = !(me && me.role === 'merchant');
   if (!$('#merchant').hidden) await loadMerchant();
   const talk = !!me && me.role !== 'admin';
@@ -129,7 +132,7 @@ $('#go').onclick = run(search);
 const welcome = (extra) => {
   if (!me) return;
   say('Bienvenue ' + me.name + ' ! Vous êtes connecté.' + (extra ? ' ' + extra : ''));
-  const e = $(me.role === 'merchant' ? '#merchant' : '#myorders');
+  const e = $(me.role === 'merchant' ? '#merchant' : '#searchBox');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (e && !e.hidden) setTimeout(() => e.scrollIntoView({ behavior: 'smooth' }), 300);
 };
@@ -172,4 +175,4 @@ $('#add').onclick = run(async () => {
   $('#aphoto').value = ''; $('#apreview').hidden = true;
   await loadMerchant(); say(msg, ok);
 });
-refresh(); search();
+refresh();

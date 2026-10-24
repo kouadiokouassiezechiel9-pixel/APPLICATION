@@ -2,39 +2,38 @@
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Marketplace</title>
 <style>
-:root{color-scheme:dark;--fond:#0e1411;--carte:#17211b;--carte2:#1d2a23;--bord:#2b3b32;--texte:#e9f0ea;--gris:#9db0a3;--vert:#1fb574;--vert-h:#17975f;--orange:#ff9a1f;--orange-h:#e5850f}
+:root{color-scheme:dark;--fond:#0b1020;--carte:#131a2e;--carte2:#1a2340;--bord:#27345a;--texte:#e8ecf6;--gris:#93a0bd;--accent:#3b82f6;--accent-h:#2563eb;--cta:#8b5cf6;--cta-h:#7c3aed}
 *{box-sizing:border-box}
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:960px;margin:0 auto;padding:0 16px 40px;line-height:1.5;background:var(--fond);color:var(--texte)}
-header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:3px solid var(--orange);margin-bottom:8px}
-h1{margin:0;font-size:1.6rem;color:var(--vert)}
-h2{margin:0 0 10px;font-size:1.2rem;color:var(--vert)}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:3px solid var(--accent);margin-bottom:8px}
+h1{margin:0;font-size:1.6rem;color:#fff}
+h2{margin:0 0 10px;font-size:1.2rem;color:#9db7ff}
 h3{margin:18px 0 8px;font-size:1rem;color:var(--texte)}
 section{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:16px;margin:16px 0}
 input,select{padding:10px 12px;margin:4px 4px 4px 0;font:inherit;color:var(--texte);background:var(--fond);border:1px solid var(--bord);border-radius:8px;max-width:100%}
-input::placeholder{color:#6f8276}
-input:focus,select:focus{outline:2px solid var(--vert);border-color:var(--vert)}
-input[type=checkbox]{margin-right:6px;accent-color:var(--vert)}
-button{padding:10px 16px;margin:4px 4px 4px 0;font:inherit;font-weight:600;border:0;border-radius:8px;background:var(--vert);color:#04150c;cursor:pointer}
-button:hover{background:var(--vert-h)}
+input::placeholder{color:#6b7a99}
+input:focus,select:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+input[type=checkbox]{margin-right:6px;accent-color:var(--accent)}
+button{padding:10px 16px;margin:4px 4px 4px 0;font:inherit;font-weight:600;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+button:hover{background:var(--accent-h)}
 button:disabled{opacity:.55;cursor:wait}
 #logout,#ckCancel,#chClose{background:var(--carte2);color:var(--texte);border:1px solid var(--bord)}
-#order,#ckOk,#pay{background:var(--orange);color:#1a0e00}
-#order:hover,#ckOk:hover,#pay:hover{background:var(--orange-h)}
+#order,#ckOk,#pay{background:var(--cta);color:#fff}
+#order:hover,#ckOk:hover,#pay:hover{background:var(--cta-h)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:12px}
 .card{background:var(--carte2);border:1px solid var(--bord);border-radius:12px;padding:12px}
 .card p{margin:6px 0}
 .small{font-size:.85em;color:var(--gris)}
 details{margin-top:12px}
-summary{cursor:pointer;color:var(--orange);font-weight:600}
+summary{cursor:pointer;color:#b4a0ff;font-weight:600}
 dialog{background:var(--carte);color:var(--texte);border:1px solid var(--bord);border-radius:14px;padding:20px;max-width:440px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 dialog::backdrop{background:rgba(0,0,0,.7)}
 dialog input,dialog select{width:100%}
 .msgs{max-height:260px;overflow:auto;border:1px solid var(--bord);border-radius:8px;padding:8px;margin:8px 0;background:var(--fond)}
-.me{text-align:right;color:#6cb6ff}
+.me{text-align:right;color:#7db4ff}
 #toast{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:1000;max-width:92%;padding:12px 18px;border-radius:10px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.5)}
-#toast.ok{background:#0f3a26;color:#c9f5de;border:1px solid var(--vert)}
+#toast.ok{background:#12285a;color:#d6e4ff;border:1px solid var(--accent)}
 #toast.err{background:#4a1515;color:#ffd6d6;border:1px solid #e25555}
-
 .ph{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;margin-bottom:8px;background:var(--fond)}
 .prev{width:140px;height:105px;object-fit:cover;border-radius:8px;margin:6px 0}
 .thumb{width:56px;height:56px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:8px}
@@ -54,11 +53,11 @@ label.btn{display:inline-block;padding:10px 16px;margin:4px 4px 4px 0;font-weigh
 <input id="shop" placeholder="Nom de la boutique (commerçant)"><br><input id="loc" placeholder="Localisation (commerçant)"><br>
 <button id="register">Créer le compte</button></details></section>
 
-<section><h2>Rechercher un article</h2>
+<section id="searchBox" hidden><h2>Rechercher un article</h2>
 <input id="q" placeholder="Rechercher..."> <button id="go">Chercher</button>
 <div id="results" class="grid"></div></section>
 
-<section><h2>Panier</h2><div id="cart"></div><button id="order">Commander</button></section>
+<section id="cartBox" hidden><h2>Panier</h2><div id="cart"></div><button id="order">Commander</button></section>
 
 <section id="convs" hidden><h2>Mes messages</h2><div id="threads"></div></section>
 <section id="myorders" hidden><h2>Mes commandes</h2><div id="mo"></div></section>
