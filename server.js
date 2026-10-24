@@ -36,7 +36,7 @@ app.use(cookie());
 const path = require('path');
 const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style.css', 'admin.css'];
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
-app.get('/version', (req, res) => res.type('text').send('version-design-2026-10-24'));
+app.get('/version', (req, res) => res.type('text').send('version-acces-2026-10-24'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
 for (const n of pagesPubliques) app.get('/' + n, (req, res) => { const f = trouver(n); f ? res.sendFile(f) : res.status(404).end(); });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -216,6 +216,8 @@ async function applyPayment(id) {
       await c.query('INSERT INTO subscriptions(merchant_id,quota,amount) VALUES($1,$2,$3)', [p.user_id, p.ref.quota, p.amount]);
     } else if (p.kind === 'order') {
       await c.query("UPDATE orders SET payment_status='paid' WHERE id=$1", [p.ref.orderId]);
+    } else if (p.kind === 'stars') {
+      await c.query("UPDATE merchants SET stars=5, star_request='none' WHERE user_id=$1 AND stars=3 AND star_request='approved'", [p.user_id]);
     }
     return true;
   });
@@ -251,6 +253,11 @@ async function handleWaveWebhook(req, res) {
 }
 
 // ---------- Client ----------
+// Boutique visible seulement si son abonnement mensuel est actif (alias SQL : m = merchants)
+const PLAN_OK = "EXISTS (SELECT 1 FROM plans pl WHERE pl.merchant_id=m.user_id AND pl.status='active' AND pl.expires_at>now())";
+// Étoiles : 1 -> 3 automatique (assez d'avis et bonne moyenne) ; 3 -> 5 : confirmation de l'admin PUIS paiement
+const FIVE_STAR_FEE = 10000; // francs, prix du passage à 5 étoiles (à ajuster)
+const RULES = { minReviews: 5, minAvg: 4, fee: FIVE_STAR_FEE };
 const STOP = new Set(['pointure', 'taille', 'de', 'du', 'des', 'la', 'le', 'les', 'en', 'pour', 'a', 'au', 'un', 'une']);
 const HAY = "translate(lower(coalesce(a.name,'')||' '||coalesce(a.description,'')||' '||coalesce(a.category,'')||' '||coalesce(a.details,'')),'àâäéèêëîïôöùûüç','aaaeeeeiioouuuc')";
 app.get('/api/articles', wrap(async (req, res) => {
@@ -258,20 +265,24 @@ app.get('/api/articles', wrap(async (req, res) => {
   const params = terms.map(t => /^[0-9]+$/.test(t) ? '\\y' + t + '\\y' : '\\y' + (t.length > 3 ? t.replace(/s$/, '') : t));
   // Score = nombre de mots de la recherche trouvés (nom, description, catégorie, détails comme la pointure)
   const score = params.length ? params.map((_, k) => `(CASE WHEN ${HAY} ~* $${k + 1} THEN 1 ELSE 0 END)`).join('+') : '0';
+  const shopId = +req.query.shop || 0;
+  const shopSql = shopId ? ` AND m.user_id=$${params.length + 1}` : '';
+  const args = shopId ? [...params, shopId] : params;
   const r = await pool.query(
     `SELECT * FROM (
-       SELECT a.id,a.name,a.description,a.details,a.price,a.stock,(a.photo IS NOT NULL) AS has_photo,m.shop_name,m.user_id AS merchant_id,
+       SELECT a.id,a.name,a.description,a.details,a.price,a.stock,(a.photo IS NOT NULL) AS has_photo,m.shop_name,m.user_id AS merchant_id,m.stars,
+         (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
          EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.tier='premium' AND p.status='active' AND p.expires_at>now()) AS premium,
          (${score}) AS score
        FROM articles a JOIN merchants m ON m.user_id=a.merchant_id
        WHERE a.online AND a.moderation='ok' AND a.stock>0 AND m.validated
-         AND ${PLAN_OK}) x
+         AND ${PLAN_OK}${shopSql}) x
      WHERE ${params.length ? 'score>0' : 'true'}
-     ORDER BY premium DESC, score DESC, id DESC LIMIT 50`, params);
+     ORDER BY premium DESC, score DESC, id DESC LIMIT 50`, args);
   res.json(r.rows);
 }));
 
-app.post('/api/orders', auth('client'), wrap(async (req, res) => {
+app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
   const d = parse(z.object({
     customerName: z.string().trim().min(2).max(100),
     customerPhone: z.string().trim().min(8).max(20),
@@ -280,6 +291,8 @@ app.post('/api/orders', auth('client'), wrap(async (req, res) => {
     items: z.array(z.object({
       id: z.number().int(), qty: z.number().int().min(1).max(100) })).min(1).max(50) }), req, res);
   if (!d) return;
+  if ((await pool.query('SELECT 1 FROM articles WHERE id = ANY($1::int[]) AND merchant_id=$2 LIMIT 1', [d.items.map(i => i.id), req.user.id])).rowCount)
+    return res.status(400).json({ error: 'Vous ne pouvez pas commander vos propres articles' });
   try {
     const out = await tx(async c => {
       const o = (await c.query('INSERT INTO orders(client_id,customer_name,customer_phone,delivery_location,payment_method) VALUES($1,$2,$3,$4,$5) RETURNING id', [req.user.id, d.customerName, d.customerPhone, d.deliveryLocation, d.paymentMethod])).rows[0];
@@ -317,13 +330,15 @@ app.post('/api/orders', auth('client'), wrap(async (req, res) => {
 // ---------- Commerçant ----------
 app.get('/api/merchant/me', auth('merchant'), wrap(async (req, res) => {
   const r = await pool.query(
-    `SELECT m.validated, m.shop_name,
+    `SELECT m.validated, m.shop_name, m.stars, m.star_request,
+       (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
+       (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
        COALESCE((SELECT quota FROM subscriptions WHERE merchant_id=m.user_id AND status='active' ORDER BY id DESC LIMIT 1),0) AS quota,
        (SELECT tier FROM plans WHERE merchant_id=m.user_id AND status='active' AND expires_at>now() ORDER BY id DESC LIMIT 1) AS plan,
        (SELECT expires_at FROM plans WHERE merchant_id=m.user_id AND status='active' AND expires_at>now() ORDER BY id DESC LIMIT 1) AS plan_expires_at,
        (SELECT count(*)::int FROM articles WHERE merchant_id=m.user_id AND online) AS used
      FROM merchants m WHERE m.user_id=$1`, [req.user.id]);
-  res.json(r.rows[0]);
+  res.json({ ...r.rows[0], rules: RULES });
 }));
 
 // Abonnement mensuel : standard 3000 francs, premium 5000 francs (30 jours, renouvellement = nouveau paiement)
@@ -410,7 +425,7 @@ app.post('/api/admin/users/:id/suspend', auth('admin'), wrap(async (req, res) =>
 app.get('/api/admin/stats', auth('admin'), wrap(async (req, res) => {
   const r = await pool.query(`SELECT (SELECT count(*)::int FROM users) users,
     (SELECT count(*)::int FROM orders) orders,
-    (SELECT COALESCE(sum(amount),0)::int FROM payments WHERE status IN ('paid','test') AND kind IN ('plan','articles')) revenue`);
+    (SELECT COALESCE(sum(amount),0)::int FROM payments WHERE status IN ('paid','test') AND kind IN ('plan','articles','stars')) revenue`);
   res.json(r.rows[0]);
 }));
 
@@ -433,30 +448,37 @@ app.post('/api/merchant/orders/:id/status', auth('merchant'), wrap(async (req, r
   if (!r.rowCount) return res.status(404).json({ error: 'Commande introuvable' });
   res.json({ ok: true });
 }));
-app.get('/api/orders/mine', auth('client'), wrap(async (req, res) => {
+app.get('/api/orders/mine', auth('client', 'merchant'), wrap(async (req, res) => {
   const r = await pool.query(
     `SELECT o.id, o.created_at, o.total, o.deposit, o.delivery_location, o.payment_method, o.payment_status,
-            json_agg(json_build_object('name', a.name, 'qty', oi.qty, 'status', oi.status)) AS items
-     FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN articles a ON a.id=oi.article_id
+            json_agg(json_build_object('name', a.name, 'qty', oi.qty, 'status', oi.status, 'merchant_id', a.merchant_id, 'shop', m.shop_name)) AS items,
+            COALESCE((SELECT json_agg(r.merchant_id) FROM reviews r WHERE r.order_id=o.id), '[]'::json) AS reviewed
+     FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN articles a ON a.id=oi.article_id JOIN merchants m ON m.user_id=a.merchant_id
      WHERE o.client_id=$1 GROUP BY o.id ORDER BY o.id DESC LIMIT 50`, [req.user.id]);
   res.json(r.rows);
 }));
 
 // ---------- Messagerie client <-> commerçant ----------
 const msgLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
+// Un utilisateur peut être acheteur (client_id) et/ou vendeur (merchant_id) : « side » dit dans quel rôle il parle
+const sideOf = (req, side) => (side || (req.user.role === 'client' ? 'buyer' : 'seller')) === 'buyer';
 app.get('/api/threads', auth('client', 'merchant'), wrap(async (req, res) => {
-  const me = req.user.id, isC = req.user.role === 'client';
+  const me = req.user.id;
   const r = await pool.query(
-    `SELECT t.other_id, u.name AS other_name, COALESCE(m.shop_name, u.name) AS label, t.last_at, t.unread
-     FROM (SELECT ${isC ? 'merchant_id' : 'client_id'} AS other_id, max(created_at) AS last_at,
+    `SELECT t.other_id, t.side, u.name AS other_name, COALESCE(m.shop_name, u.name) AS label, t.last_at, t.unread
+     FROM (SELECT merchant_id AS other_id, 'buyer' AS side, max(created_at) AS last_at,
                   count(*) FILTER (WHERE NOT read AND sender_id<>$1)::int AS unread
-           FROM messages WHERE ${isC ? 'client_id' : 'merchant_id'}=$1 GROUP BY 1) t
+           FROM messages WHERE client_id=$1 GROUP BY merchant_id
+           UNION ALL
+           SELECT client_id AS other_id, 'seller' AS side, max(created_at) AS last_at,
+                  count(*) FILTER (WHERE NOT read AND sender_id<>$1)::int AS unread
+           FROM messages WHERE merchant_id=$1 GROUP BY client_id) t
      JOIN users u ON u.id=t.other_id LEFT JOIN merchants m ON m.user_id=t.other_id
      ORDER BY t.last_at DESC`, [me]);
   res.json(r.rows);
 }));
 app.get('/api/messages/:otherId', auth('client', 'merchant'), wrap(async (req, res) => {
-  const other = +req.params.otherId || 0, isC = req.user.role === 'client';
+  const other = +req.params.otherId || 0, isC = sideOf(req, req.query.side);
   const [cid, mid] = isC ? [req.user.id, other] : [other, req.user.id];
   await pool.query('UPDATE messages SET read=true WHERE client_id=$1 AND merchant_id=$2 AND sender_id<>$3 AND NOT read', [cid, mid, req.user.id]);
   const r = await pool.query(
@@ -467,12 +489,12 @@ app.get('/api/messages/:otherId', auth('client', 'merchant'), wrap(async (req, r
 }));
 app.post('/api/messages', msgLimiter, auth('client', 'merchant'), wrap(async (req, res) => {
   const d = parse(z.object({ to: z.number().int(), body: z.string().trim().min(1).max(1000),
-    articleId: z.number().int().optional() }), req, res);
+    articleId: z.number().int().optional(), side: z.enum(['buyer', 'seller']).optional() }), req, res);
   if (!d) return;
-  const isC = req.user.role === 'client';
+  const isC = sideOf(req, d.side);
   const [cid, mid] = isC ? [req.user.id, d.to] : [d.to, req.user.id];
   const ok = (await pool.query(
-    `SELECT 1 FROM merchants m JOIN users u ON u.id=$2 WHERE m.user_id=$1 AND m.validated AND u.status='active' AND u.role='client'`, [mid, cid])).rowCount;
+    `SELECT 1 FROM merchants m JOIN users u ON u.id=$2 WHERE m.user_id=$1 AND m.validated AND u.status='active' AND u.role IN ('client','merchant') AND u.id<>m.user_id`, [mid, cid])).rowCount;
   if (!ok) return res.status(404).json({ error: 'Destinataire introuvable' });
   if (!isC && !(await pool.query('SELECT 1 FROM messages WHERE client_id=$1 AND merchant_id=$2 LIMIT 1', [cid, mid])).rowCount)
     return res.status(403).json({ error: 'Le client doit écrire en premier' });
@@ -483,6 +505,69 @@ app.post('/api/messages', msgLimiter, auth('client', 'merchant'), wrap(async (re
 }));
 
 // ---------- Modération des produits (admin) ----------
+// ---------- Boutiques, notes et étoiles ----------
+app.get('/api/shops', wrap(async (req, res) => {
+  const r = await pool.query(
+    `SELECT m.user_id AS id, m.shop_name, m.location, m.stars,
+       (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
+       (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
+       (SELECT count(*)::int FROM articles a WHERE a.merchant_id=m.user_id AND a.online AND a.moderation='ok' AND a.stock>0) AS articles,
+       EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.tier='premium' AND p.status='active' AND p.expires_at>now()) AS premium
+     FROM merchants m
+     WHERE m.validated AND ${PLAN_OK}
+     ORDER BY premium DESC, m.stars DESC, rating DESC NULLS LAST, m.shop_name`);
+  res.json(r.rows);
+}));
+// Le client note la boutique une fois la commande livrée (une note par commande et par boutique)
+app.post('/api/orders/:id/review', auth('client', 'merchant'), wrap(async (req, res) => {
+  const d = parse(z.object({ merchantId: z.number().int(), score: z.number().int().min(1).max(5), comment: z.string().trim().max(300).optional() }), req, res);
+  if (!d) return;
+  const oid = +req.params.id || 0;
+  const ok = (await pool.query(
+    `SELECT 1 FROM order_items oi JOIN articles a ON a.id=oi.article_id JOIN orders o ON o.id=oi.order_id
+     WHERE o.id=$1 AND o.client_id=$2 AND o.payment_status='paid' AND a.merchant_id=$3 AND a.merchant_id<>$2 AND oi.status='delivered' LIMIT 1`,
+    [oid, req.user.id, d.merchantId])).rows[0];
+  if (!ok) return res.status(403).json({ error: 'Vous pourrez noter la boutique une fois la commande livrée' });
+  const ins = await pool.query(
+    'INSERT INTO reviews(order_id,merchant_id,client_id,score,comment) VALUES($1,$2,$3,$4,$5) ON CONFLICT (order_id, merchant_id) DO NOTHING',
+    [oid, d.merchantId, req.user.id, d.score, d.comment || null]);
+  if (!ins.rowCount) return res.status(409).json({ error: 'Vous avez déjà noté cette boutique pour cette commande' });
+  const s = (await pool.query('SELECT count(*)::int AS n, avg(score)::float AS a FROM reviews WHERE merchant_id=$1', [d.merchantId])).rows[0];
+  if (s.n >= RULES.minReviews && s.a >= RULES.minAvg) await pool.query('UPDATE merchants SET stars=3 WHERE user_id=$1 AND stars=1', [d.merchantId]);
+  res.json({ ok: true });
+}));
+// 3 -> 5 étoiles : le commerçant demande, l'admin confirme, puis le commerçant paie
+app.post('/api/merchant/stars/request', auth('merchant'), wrap(async (req, res) => {
+  const m = (await pool.query('SELECT stars, star_request FROM merchants WHERE user_id=$1', [req.user.id])).rows[0];
+  if (m.stars >= 5) return res.status(409).json({ error: 'Votre boutique a déjà 5 étoiles' });
+  if (m.stars < 3) return res.status(403).json({ error: 'Il faut d\'abord atteindre 3 étoiles' });
+  if (m.star_request !== 'none') return res.status(409).json({ error: 'Une demande est déjà en cours' });
+  await pool.query("UPDATE merchants SET star_request='requested' WHERE user_id=$1", [req.user.id]);
+  res.json({ ok: true });
+}));
+app.post('/api/merchant/stars/pay', auth('merchant'), wrap(async (req, res) => {
+  const m = (await pool.query('SELECT stars, star_request FROM merchants WHERE user_id=$1', [req.user.id])).rows[0];
+  if (m.stars !== 3 || m.star_request !== 'approved') return res.status(403).json({ error: 'Le passage à 5 étoiles doit d\'abord être confirmé par l\'administrateur' });
+  try { res.json(await startPayment(req.user.id, 'stars', FIVE_STAR_FEE, {})); }
+  catch (e) { if (!payFail(res, e)) throw e; }
+}));
+app.get('/api/admin/star-requests', auth('admin'), wrap(async (req, res) => {
+  const r = await pool.query(
+    `SELECT m.user_id AS id, m.shop_name, u.name, u.email, m.stars,
+       (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
+       (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating
+     FROM merchants m JOIN users u ON u.id=m.user_id WHERE m.star_request='requested' ORDER BY m.user_id`);
+  res.json(r.rows);
+}));
+app.post('/api/admin/merchants/:id/stars', auth('admin'), wrap(async (req, res) => {
+  const d = parse(z.object({ decision: z.enum(['approve', 'reject']) }), req, res);
+  if (!d) return;
+  const r = await pool.query("UPDATE merchants SET star_request=$1 WHERE user_id=$2 AND star_request='requested' AND stars=3",
+    [d.decision === 'approve' ? 'approved' : 'none', +req.params.id || 0]);
+  if (!r.rowCount) return res.status(404).json({ error: 'Demande introuvable' });
+  res.json({ ok: true });
+}));
+
 app.get('/api/admin/articles', auth('admin'), wrap(async (req, res) => {
   res.json((await pool.query(
     `SELECT a.id,a.name,a.description,a.price,a.moderation,m.shop_name FROM articles a JOIN merchants m ON m.user_id=a.merchant_id
@@ -499,6 +584,14 @@ app.post('/api/admin/articles/:id/remove', auth('admin'), wrap(async (req, res) 
 (async () => {
   await pool.query(fs.readFileSync(__dirname + '/schema.sql', 'utf8'));
   await pool.query('ALTER TABLE articles ADD COLUMN IF NOT EXISTS photo BYTEA');
+  await pool.query(`ALTER TABLE merchants ADD COLUMN IF NOT EXISTS stars INT NOT NULL DEFAULT 1;
+    ALTER TABLE merchants ADD COLUMN IF NOT EXISTS star_request TEXT NOT NULL DEFAULT 'none';
+    CREATE TABLE IF NOT EXISTS reviews(
+      id SERIAL PRIMARY KEY, order_id INT NOT NULL REFERENCES orders(id),
+      merchant_id INT NOT NULL REFERENCES merchants(user_id), client_id INT NOT NULL REFERENCES users(id),
+      score INT NOT NULL CHECK (score BETWEEN 1 AND 5), comment TEXT, created_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE(order_id, merchant_id));
+    CREATE INDEX IF NOT EXISTS idx_reviews_merchant ON reviews(merchant_id);`);
   const { ADMIN_EMAIL: e, ADMIN_PASSWORD: p } = process.env;
   if (e && p && p.length >= 12) {
     const has = await pool.query("SELECT 1 FROM users WHERE role='admin'");

@@ -22,61 +22,114 @@ const goPay = async r => { if (r.payUrl) location.href = r.payUrl; else await lo
 const back = new URLSearchParams(location.search).get('paiement');
 if (back) { history.replaceState(null, '', '/'); setTimeout(() => say(back === 'ok' ? 'Retour de Wave. Votre paiement est en cours de confirmation, il apparaîtra dans quelques instants (actualisez la page).' : 'Le paiement Wave n\'a pas abouti. Vous pouvez réessayer.'), 300); }
 
+let mode = 'merchant';   // un commerçant choisit : son espace, ou l'achat comme un client
+const ROLE_FR = { client: 'client', merchant: 'commerçant', admin: 'administrateur' };
+const authMode = reg => { $('#loginBox').hidden = reg; $('#registerBox').hidden = !reg; };
 async function refresh() {
   try { me = await api('me'); } catch { me = null; }
   $('#auth').hidden = !!me; $('#logout').hidden = !me;
-  $('#who').textContent = me ? me.name + ' (' + me.role + ')' : '';
-  const client = !!me && me.role === 'client';
-  $('#searchBox').hidden = !client; $('#cartBox').hidden = !client;   // recherche et panier : clients connectés seulement
-  if (client) await search();
-  $('#merchant').hidden = !(me && me.role === 'merchant');
+  if (!me) { mode = 'merchant'; authMode(false); }
+  $('#who').textContent = me ? me.name + ' (' + (ROLE_FR[me.role] || me.role) + ')' : '';
+  const isM = !!me && me.role === 'merchant';
+  const buying = !!me && (me.role === 'client' || (isM && mode === 'client'));
+  $('#modeBar').hidden = !isM;
+  $('#modeMerchant').className = mode === 'merchant' ? 'on' : ''; $('#modeClient').className = mode === 'client' ? 'on' : '';
+  $('#searchBox').hidden = !buying; $('#cartBox').hidden = !buying;   // recherche et panier : clients, et commerçants en mode achat
+  if (buying) await search();
+  $('#merchant').hidden = !(isM && mode === 'merchant');
   if (!$('#merchant').hidden) await loadMerchant();
   const talk = !!me && me.role !== 'admin';
-  $('#convs').hidden = !talk; $('#myorders').hidden = !(me && me.role === 'client');
+  $('#convs').hidden = !talk; $('#myorders').hidden = !buying;
   if (talk) await loadThreads();
-  if (me && me.role === 'client') await loadMyOrders();
+  if (buying) await loadMyOrders();
 }
 const STATUS = { pending: 'en attente', preparing: 'en préparation', delivered: 'livrée' };
 const PAY = { wave: 'Wave' };
 async function loadMyOrders() {
   const l = await api('orders/mine');
-  $('#mo').replaceChildren(...(l.length ? l : [null]).map(o => o ? el('div', { className: 'card' },
-    el('b', {}, 'Commande #' + o.id + ' - ' + fmt(o.total) + ' - ' + (o.payment_status === 'paid' ? 'acompte ' + fmt(o.deposit) + ' payé, reste ' + fmt(o.total - o.deposit) + ' à la livraison' : o.payment_status === 'unpaid' ? 'en attente du paiement Wave de l\'acompte' : 'annulée')),
-    el('p', { className: 'small' }, o.items.map(i => i.name + ' ×' + i.qty + ' (' + STATUS[i.status] + ')').join(', ') + ' · ' + o.delivery_location)) : el('p', {}, 'Aucune commande.')));
+  $('#mo').replaceChildren(...(l.length ? l : [null]).map(o => {
+    if (!o) return el('p', {}, 'Aucune commande.');
+    // boutiques dont les articles sont livrés : le client peut les noter (une fois par commande)
+    const livrees = [...new Map(o.items.filter(i => i.status === 'delivered').map(i => [i.merchant_id, i.shop])).entries()];
+    const notes = livrees.map(([mid, shop]) => {
+      if ((o.reviewed || []).includes(mid)) return el('p', { className: 'small' }, '✔ Vous avez noté ' + shop);
+      const sel = el('select', {}, ...[5, 4, 3, 2, 1].map(n => el('option', { value: n }, n + ' / 5 ' + '★'.repeat(n))));
+      return el('p', {}, 'Noter ' + shop + ' : ', sel,
+        el('button', { onclick: run(async () => { await api('orders/' + o.id + '/review', 'POST', { merchantId: mid, score: +sel.value }); say('Merci pour votre note !'); await loadMyOrders(); }) }, 'Envoyer la note'));
+    });
+    return el('div', { className: 'card' },
+      el('b', {}, 'Commande #' + o.id + ' - ' + fmt(o.total) + ' - ' + (o.payment_status === 'paid' ? 'acompte ' + fmt(o.deposit) + ' payé, reste ' + fmt(o.total - o.deposit) + ' à la livraison' : o.payment_status === 'unpaid' ? 'en attente du paiement Wave de l\'acompte' : 'annulée')),
+      el('p', { className: 'small' }, o.items.map(i => i.name + ' ×' + i.qty + ' (' + STATUS[i.status] + ')').join(', ') + ' · ' + o.delivery_location),
+      ...notes);
+  }));
 }
 async function loadThreads() {
   const l = await api('threads');
   $('#threads').replaceChildren(...(l.length ? l : [null]).map(t => t ? el('div', { className: 'card' },
-    t.label + (t.unread ? ' (' + t.unread + ' nouveau' + (t.unread > 1 ? 'x' : '') + ')' : '') + ' ',
-    el('button', { onclick: () => openChat(t.other_id, t.label) }, 'Ouvrir')) : el('p', {}, 'Aucune conversation.')));
+    t.label + (me && me.role === 'merchant' ? (t.side === 'buyer' ? ' · vos achats' : ' · vos ventes') : '') + (t.unread ? ' (' + t.unread + ' nouveau' + (t.unread > 1 ? 'x' : '') + ')' : '') + ' ',
+    el('button', { onclick: () => openChat(t.other_id, t.label, undefined, t.side) }, 'Ouvrir')) : el('p', {}, 'Aucune conversation.')));
 }
-let chatWith = null, chatArticle = null, chatTimer = null;
+let chatWith = null, chatArticle = null, chatTimer = null, chatSide = 'buyer';
 async function drawChat() {
-  const l = await api('messages/' + chatWith);
+  const l = await api('messages/' + chatWith + '?side=' + chatSide);
   $('#chMsgs').replaceChildren(...l.map(m => el('div', { className: m.sender_id === me.id ? 'me' : '' },
     (m.article ? '[' + m.article + '] ' : '') + m.body)));
   $('#chMsgs').scrollTop = 1e9;
 }
-function openChat(id, label, articleId) {
-  chatWith = id; chatArticle = articleId; $('#chTitle').textContent = label;
+function openChat(id, label, articleId, side) {
+  chatWith = id; chatArticle = articleId; chatSide = side || 'buyer'; $('#chTitle').textContent = label;
   $('#chat').showModal(); drawChat().catch(() => {});
   clearInterval(chatTimer); chatTimer = setInterval(() => drawChat().catch(() => {}), 5000);
 }
 $('#chClose').onclick = () => { clearInterval(chatTimer); $('#chat').close(); if (me) loadThreads().catch(() => {}); };
 $('#chat').addEventListener('close', () => clearInterval(chatTimer));
 $('#chSend').onclick = run(async () => {
-  await api('messages', 'POST', { to: chatWith, body: $('#chText').value, articleId: chatArticle });
+  await api('messages', 'POST', { to: chatWith, body: $('#chText').value, articleId: chatArticle, side: chatSide });
   $('#chText').value = ''; await drawChat();
 });
+const stars = n => '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
+let shopFilter = 0;
+function showBanner(name) {
+  const b = $('#shopBanner'); b.hidden = !shopFilter;
+  b.replaceChildren(el('span', {}, 'Articles de la boutique : ' + name + ' '),
+    el('button', { onclick: run(async () => { shopFilter = 0; b.hidden = true; await search(); }) }, 'Voir tous les articles'));
+}
+async function showShops() {
+  const box = $('#shops');
+  if (!box.hidden) { box.hidden = true; return; }
+  const l = await api('shops');
+  box.replaceChildren(...(l.length ? l : [null]).map(s => s ? el('div', { className: 'card' },
+    el('b', {}, s.shop_name), s.premium ? el('p', { className: 'small' }, 'Premium') : '',
+    el('p', { className: 'small' }, s.location || ''),
+    el('p', {}, el('span', { className: 'stars' }, stars(s.stars)), s.rating ? ' ' + s.rating + '/5 (' + s.reviews + ' avis)' : ' pas encore d\'avis'),
+    el('p', { className: 'small' }, s.articles + ' article' + (s.articles > 1 ? 's' : '') + ' en ligne'),
+    el('button', { onclick: run(async () => { shopFilter = s.id; $('#q').value = ''; box.hidden = true; showBanner(s.shop_name); await search(); $('#results').scrollIntoView({ behavior: 'smooth' }); }) }, 'Voir ses articles'))
+    : el('p', {}, 'Aucune boutique disponible pour le moment.')));
+  box.hidden = false;
+}
+function drawStars(m) {
+  const r = m.rules || {};
+  const kids = [el('p', {}, 'Étoiles de la boutique : ', el('span', { className: 'stars' }, stars(m.stars)),
+    m.reviews ? ' · moyenne ' + m.rating + '/5 (' + m.reviews + ' avis)' : ' · aucun avis pour l\'instant')];
+  if (m.stars === 1) kids.push(el('p', { className: 'small' }, 'Pour passer à 3 étoiles : au moins ' + r.minReviews + ' avis avec une moyenne de ' + r.minAvg + '/5 ou plus. Les clients vous notent après la livraison.'));
+  else if (m.stars === 3 && m.star_request === 'none') kids.push(el('p', {}, 'Vous pouvez demander les 5 étoiles. Après confirmation de l\'administrateur, vous paierez ' + fmt(r.fee) + '. '),
+    el('button', { onclick: run(async () => { await api('merchant/stars/request', 'POST', {}); say('Demande envoyée à l\'administrateur.'); await loadMerchant(); }) }, 'Demander les 5 étoiles'));
+  else if (m.stars === 3 && m.star_request === 'requested') kids.push(el('p', { className: 'small' }, 'Demande envoyée : en attente de confirmation de l\'administrateur.'));
+  else if (m.stars === 3 && m.star_request === 'approved') kids.push(el('p', {}, 'L\'administrateur a confirmé. Payez ' + fmt(r.fee) + ' pour passer à 5 étoiles. '),
+    el('button', { onclick: run(async () => goPay(await api('merchant/stars/pay', 'POST', {}))) }, 'Payer avec Wave'));
+  else if (m.stars >= 5) kids.push(el('p', { className: 'small' }, 'Boutique 5 étoiles ✔'));
+  $('#starsBox').replaceChildren(...kids);
+}
 async function search() {
-  const list = await api('articles?q=' + encodeURIComponent($('#q').value));
+  const list = await api('articles?q=' + encodeURIComponent($('#q').value) + (shopFilter ? '&shop=' + shopFilter : ''));
   $('#results').replaceChildren(...list.map(a => el('div', { className: 'card' },
     a.has_photo ? el('img', { className: 'ph', src: '/api/articles/' + a.id + '/photo', alt: a.name, loading: 'lazy' }) : '',
-    el('b', {}, a.name), el('p', {}, a.description || ''),
+    el('b', {}, a.name), el('p', { className: 'small' }, el('span', { className: 'stars' }, stars(a.stars)), a.rating ? ' ' + a.rating + '/5' : ''), el('p', {}, a.description || ''),
     a.premium ? el('p', { className: 'small' }, '★ Premium') : '', el('p', { className: 'small' }, a.details || ''),
     el('p', {}, fmt(a.price) + ' · ' + a.shop_name + ' · stock ' + a.stock),
-    el('button', { onclick: run(async () => { if (!me || me.role !== 'client') throw new Error('Connectez-vous avec un compte client pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id); }) }, 'Poser une question'), ' ',
-    el('button', { onclick: () => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.price, qty: 1 }); drawCart(); } }, 'Ajouter au panier'))));
+    ...(me && a.merchant_id === me.id ? [el('p', { className: 'small' }, 'C\'est votre article')] : [
+    el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Poser une question'), ' ',
+    el('button', { onclick: () => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.price, qty: 1 }); drawCart(); } }, 'Ajouter au panier')]))));
 }
 function drawCart() {
   $('#cart').replaceChildren(...cart.map(c => el('div', {}, c.name + ' × ' + c.qty + ' ',
@@ -110,6 +163,7 @@ async function loadMerchant() {
   else if (!m.quota) need = 'Il reste à payer la capacité d\'articles (par exemple 10 articles = ' + prixTier + ') pour pouvoir ajouter des articles.';
   else if (m.quota <= m.used) need = 'Vous avez atteint votre capacité de ' + m.quota + ' articles. Payez un palier supérieur pour en ajouter.';
   $('#addBox').hidden = need !== ''; $('#payFirst').hidden = need === ''; $('#payFirst').textContent = need;
+  drawStars(m);
   $('#quota').textContent = (m.validated ? '' : 'Compte en attente de validation. ') + (m.plan ? 'Abonnement ' + m.plan + ' jusqu\'au ' + new Date(m.plan_expires_at).toLocaleDateString('fr-FR') : 'Aucun abonnement mensuel actif : vos articles sont masqués') + ' · Articles en ligne : ' + m.used + ' / ' + m.quota;
   $('#tier').replaceChildren(...[10, 20, 30, 40, 50, 100].map(n => el('option', { value: n }, n + ' articles - ' + fmt(tier(n)))));
   const list = await api('merchant/articles');
@@ -129,6 +183,12 @@ async function loadMerchant() {
 }
 
 $('#go').onclick = run(search);
+$('#toRegister').onclick = () => authMode(true);
+$('#toLogin').onclick = () => authMode(false);
+$('#role').onchange = () => { $('#merchantFields').hidden = $('#role').value !== 'merchant'; };
+$('#modeMerchant').onclick = run(async () => { mode = 'merchant'; await refresh(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+$('#modeClient').onclick = run(async () => { mode = 'client'; await refresh(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+$('#shopsBtn').onclick = run(showShops);
 const welcome = (extra) => {
   if (!me) return;
   say('Bienvenue ' + me.name + ' ! Vous êtes connecté.' + (extra ? ' ' + extra : ''));
@@ -149,7 +209,7 @@ $('#register').onclick = run(async () => {
 });
 $('#logout').onclick = run(async () => { await api('logout', 'POST', {}); await refresh(); });
 $('#order').onclick = run(async () => {
-  if (!me || me.role !== 'client') throw new Error('Connectez-vous avec un compte client pour commander');
+  if (!me || me.role === 'admin') throw new Error('Connectez-vous pour commander');
   if (!cart.length) throw new Error('Panier vide');
   $('#ckName').value = me.name; const tot = cart.reduce((n, c) => n + c.price * c.qty, 0), dep = Math.ceil(tot / 2);
   $('#ckTotal').textContent = 'Total : ' + fmt(tot) + ' · À payer maintenant sur Wave (50 %) : ' + fmt(dep) + ' · Reste à payer à la livraison : ' + fmt(tot - dep);

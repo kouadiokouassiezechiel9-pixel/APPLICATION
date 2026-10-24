@@ -63,3 +63,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_wave ON payments(wave_session_id)
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'unpaid';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS deposit INT NOT NULL DEFAULT 0;
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS photo BYTEA;
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS stars INT NOT NULL DEFAULT 1;
+    ALTER TABLE merchants ADD COLUMN IF NOT EXISTS star_request TEXT NOT NULL DEFAULT 'none';
+    CREATE TABLE IF NOT EXISTS reviews(
+      id SERIAL PRIMARY KEY, order_id INT NOT NULL REFERENCES orders(id),
+      merchant_id INT NOT NULL REFERENCES merchants(user_id), client_id INT NOT NULL REFERENCES users(id),
+      score INT NOT NULL CHECK (score BETWEEN 1 AND 5), comment TEXT, created_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE(order_id, merchant_id));
+    CREATE INDEX IF NOT EXISTS idx_reviews_merchant ON reviews(merchant_id);

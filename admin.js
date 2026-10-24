@@ -17,6 +17,12 @@ async function dash() {
     ? el('div', { className: 'row' }, m.shop_name + ' - ' + m.name + ' (' + m.email + ') ',
         el('button', { onclick: run(async () => { await api('admin/merchants/' + m.id + '/validate', 'POST', {}); await dash(); }) }, 'Valider'))
     : el('p', {}, 'Aucun commerçant en attente.')));
+  const sr = await api('admin/star-requests');
+  $('#starReq').replaceChildren(...(sr.length ? sr : [null]).map(m => m
+    ? el('div', { className: 'row' }, m.shop_name + ' (' + m.email + ') · ' + (m.rating ? m.rating + '/5, ' + m.reviews + ' avis' : 'aucun avis') + ' ',
+        el('button', { onclick: run(async () => { await api('admin/merchants/' + m.id + '/stars', 'POST', { decision: 'approve' }); await dash(); }) }, 'Confirmer'), ' ',
+        el('button', { onclick: run(async () => { await api('admin/merchants/' + m.id + '/stars', 'POST', { decision: 'reject' }); await dash(); }) }, 'Refuser'))
+    : el('p', {}, 'Aucune demande en attente.')));
   const arts = await api('admin/articles');
   $('#arts').replaceChildren(...arts.map(a => el('div', { className: 'row' },
     a.name + ' - ' + a.shop_name + ' - ' + a.price + ' francs' + (a.moderation === 'removed' ? ' [RETIRÉ]' : '') + ' ',
