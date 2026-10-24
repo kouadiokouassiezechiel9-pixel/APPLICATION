@@ -176,3 +176,47 @@ $('#add').onclick = run(async () => {
   await loadMerchant(); say(msg, ok);
 });
 refresh();
+
+// ---- Design : titres mot par mot, fond de courbes de niveau ----
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -10% 0px' }) : null;
+  document.querySelectorAll('header h1, section h2').forEach(h => {
+    const txt = h.textContent.trim(); h.setAttribute('aria-label', txt);
+    h.replaceChildren(...txt.split(/\s+/).map((w, i) => { const s = document.createElement('span'); s.className = 'w'; s.setAttribute('aria-hidden', 'true'); s.style.setProperty('--i', i); s.textContent = w; return s; }));
+    if (reduce || !io) h.classList.add('in'); else io.observe(h);
+  });
+})();
+(() => {
+  const cv = document.getElementById('contours'); if (!cv || !cv.getContext) return;
+  const ctx = cv.getContext('2d'), CELLS = 72, COUNT = 2.5, SCALE = 3.8, AMP = 0.37;
+  const field = (x, y, t) => {
+    let f = Math.sin(x + t * 0.6) * 0.5; f += Math.sin(y * 0.85 - t * 0.45) * 0.45;
+    f += Math.sin((x + y) * 0.65 + t * 0.35) * 0.35; f += Math.sin((x - y) * 0.95 - t * 0.55) * 0.25;
+    return f * 0.5 + 0.5;
+  };
+  const size = () => { const r = Math.min(devicePixelRatio || 1, 2); cv.width = Math.round(innerWidth * r); cv.height = Math.round(innerHeight * r); };
+  const draw = (now) => {
+    const w = cv.width, h = cv.height, t = now / 1000 * 1.66;
+    const cols = w >= h ? CELLS : Math.max(8, Math.round(CELLS * w / h)), rows = Math.max(8, Math.round(cols * h / w));
+    const sx = w / cols, sy = h / rows, asp = w / h, v = new Float32Array((cols + 1) * (rows + 1));
+    for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+      const nx = ((i / cols) * 2 - 1) * asp * SCALE, ny = ((j / rows) * 2 - 1) * SCALE;
+      v[j * (cols + 1) + i] = field(nx + Math.sin(ny * 0.8 + t * 0.7) * AMP, ny + Math.cos(nx * 0.7 - t * 0.6) * AMP, t) * COUNT;
+    }
+    ctx.clearRect(0, 0, w, h); ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.beginPath();
+    const seg = (p, q) => { ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); };
+    for (let L = 0.5; L < COUNT; L += 1) for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const a = v[j * (cols + 1) + i], b = v[j * (cols + 1) + i + 1], c = v[(j + 1) * (cols + 1) + i + 1], d = v[(j + 1) * (cols + 1) + i];
+      const k = (a > L ? 8 : 0) | (b > L ? 4 : 0) | (c > L ? 2 : 0) | (d > L ? 1 : 0); if (k === 0 || k === 15) continue;
+      const x0 = i * sx, y0 = j * sy, T = [x0 + sx * ((L - a) / (b - a)), y0], R = [x0 + sx, y0 + sy * ((L - b) / (c - b))], B = [x0 + sx * ((L - d) / (c - d)), y0 + sy], Lf = [x0, y0 + sy * ((L - a) / (d - a))];
+      switch (k) { case 1: case 14: seg(Lf, B); break; case 2: case 13: seg(B, R); break; case 3: case 12: seg(Lf, R); break; case 4: case 11: seg(T, R); break;
+        case 6: case 9: seg(T, B); break; case 7: case 8: seg(Lf, T); break; case 5: seg(Lf, T); seg(B, R); break; case 10: seg(Lf, B); seg(T, R); break; }
+    }
+    ctx.stroke();
+  };
+  size(); draw(0);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { addEventListener('resize', () => { size(); draw(0); }); return; }
+  let last = 0; const loop = (now) => { if (!document.hidden && now - last > 50) { last = now; draw(now); } requestAnimationFrame(loop); };
+  addEventListener('resize', size); requestAnimationFrame(loop);
+})();
