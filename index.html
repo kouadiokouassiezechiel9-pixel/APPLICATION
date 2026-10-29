@@ -48,16 +48,12 @@ h2.big em{font-style:normal;background:linear-gradient(var(--acc),var(--acc)) 0 
 .seg button{margin:0 0 -1px;border:0;border-radius:0;border-bottom:2px solid transparent;background:none;padding:8px 0;font:600 .8rem var(--sans);text-transform:none;letter-spacing:0;color:var(--mut)}
 .seg button:hover{background:none;color:var(--ink)}
 .seg button.on{color:var(--ink);border-bottom-color:var(--acc)}
-.cmp{position:relative;aspect-ratio:4/3.1;overflow:hidden;user-select:none;background:#cfcac0}
+.cmp{position:relative;aspect-ratio:1/1;overflow:hidden;user-select:none;background:#cfcac0}
 .lay{position:absolute;inset:0;display:grid;place-items:center}
 .lay em{position:absolute;top:10px;font:700 .64rem var(--sans);letter-spacing:.14em;text-transform:uppercase;font-style:normal;padding:4px 8px}
-.prod{width:72%;height:auto;display:block}
-.after{background:radial-gradient(ellipse 60% 55% at 50% 42%,#4a2a1b 0%,#1c1511 70%);--body:#f3ecdc;--sole:#fffaf0;--acc2:#e2552d;--strap:#c0502a;--ink2:#1a1613}
-.after::after{content:"";position:absolute;left:24%;right:24%;bottom:17%;height:5%;background:radial-gradient(ellipse,rgba(0,0,0,.55),transparent 70%)}
-.after .prod{position:relative;z-index:1;filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
+.lay img{width:100%;height:100%;object-fit:cover;display:block;-webkit-user-drag:none}
 .after em{right:10px;background:var(--acc);color:#fff}
-.before{background:#cdc8be;clip-path:inset(0 calc(100% - var(--p)) 0 0);--body:#b4afa5;--sole:#a49f95;--acc2:#9a958b;--strap:#8c877e;--ink2:#6b675f}
-.before .prod{width:58%;transform:rotate(-4deg) translate(-4%,6%);filter:blur(.5px) contrast(.9)}
+.before{clip-path:inset(0 calc(100% - var(--p)) 0 0)}
 .before em{left:10px;background:#fff;color:var(--ink)}
 .hdl{position:absolute;top:0;bottom:0;left:var(--p);width:2px;background:#fff;transform:translateX(-1px);pointer-events:none}
 .hdl span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--ink);color:#fff;border-radius:50%;width:36px;height:36px;display:grid;place-items:center;font-size:.65rem;border:2px solid #fff}
@@ -143,12 +139,6 @@ footer b{color:var(--ink);font-family:var(--disp)}
 @media(max-width:560px){section{padding:18px}h1{font-size:1.2rem}h2{font-size:1.35rem}.facts{gap:20px}}
 </style></head><body>
 <div id="toast" hidden role="status"></div>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<symbol id="p0" viewBox="0 0 200 150"><path d="M20 108Q20 98 32 98H168Q184 98 184 110V118H20Z" fill="var(--sole)"/><path d="M26 98L28 62Q30 52 44 54L70 58Q84 74 104 76L150 82Q178 88 182 98Z" fill="var(--body)"/><path d="M142 82Q176 88 182 98H142Z" fill="var(--acc2)"/><path d="M72 62L84 72M82 59L94 71M92 61L104 74" stroke="var(--ink2)" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M48 90Q90 76 130 92" stroke="var(--acc2)" stroke-width="5" fill="none" stroke-linecap="round"/></symbol>
-<symbol id="p1" viewBox="0 0 200 150"><rect x="82" y="4" width="36" height="50" rx="8" fill="var(--strap)"/><rect x="82" y="96" width="36" height="50" rx="8" fill="var(--strap)"/><rect x="138" y="69" width="7" height="12" rx="2" fill="var(--sole)"/><circle cx="100" cy="75" r="41" fill="var(--sole)"/><circle cx="100" cy="75" r="33" fill="var(--body)"/><path d="M100 47v6M100 97v6M72 75h6M122 75h6" stroke="var(--ink2)" stroke-width="2.5" stroke-linecap="round"/><path d="M100 75V54M100 75L116 83" stroke="var(--ink2)" stroke-width="3" stroke-linecap="round"/><circle cx="100" cy="75" r="3.5" fill="var(--acc2)"/></symbol>
-<symbol id="p2" viewBox="0 0 200 150"><path d="M26 28L172 16L180 122L20 134Z" fill="var(--body)"/><g fill="var(--acc2)"><circle cx="62" cy="48" r="15"/><circle cx="108" cy="44" r="15"/><circle cx="154" cy="40" r="15"/><circle cx="84" cy="92" r="15"/><circle cx="132" cy="88" r="15"/></g><g fill="var(--sole)"><circle cx="62" cy="48" r="7"/><circle cx="108" cy="44" r="7"/><circle cx="154" cy="40" r="7"/><circle cx="84" cy="92" r="7"/><circle cx="132" cy="88" r="7"/></g><path d="M20 134L60 70L180 122" stroke="var(--ink2)" stroke-opacity=".18" stroke-width="2" fill="none"/></symbol>
-<symbol id="p3" viewBox="0 0 200 150"><rect x="86" y="6" width="28" height="12" rx="3" fill="var(--sole)"/><rect x="88" y="16" width="24" height="30" fill="var(--acc2)" fill-opacity=".85"/><rect x="70" y="40" width="60" height="100" rx="16" fill="var(--acc2)"/><rect x="70" y="72" width="60" height="42" fill="var(--body)"/><circle cx="100" cy="93" r="10" fill="var(--strap)"/><path d="M80 52v70" stroke="#fff" stroke-opacity=".25" stroke-width="4" stroke-linecap="round"/></symbol>
-</defs></svg>
 <div class="topbar" aria-hidden="true"><div class="tick"><span class="tag">Édition 1.0 • 2026</span><span>Le Code Créatif • Framework premium</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Édition 1.0 • 2026</span><span>Le Code Créatif • Framework premium</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span></div></div>
 <header><a class="brand" href="/"><span class="mark">CC</span><span><h1>Marketplace</h1><small>LES GÉNIES CRÉATIFS • 2026</small></span></a>
 <div class="hr"><span id="who"></span> <button id="cartBtn" class="ghost" hidden>Panier <i id="cartN">0</i></button> <button id="bell" class="ghost" hidden>Notifications</button> <button id="hLogin" class="dark">Connexion →</button> <button id="logout" class="ghost" hidden>Déconnexion</button></div></header>
@@ -161,9 +151,9 @@ footer b{color:var(--ink);font-family:var(--disp)}
 <p class="lead">Une place de marché pour les commerçants et créateurs d'ici. Vous publiez vos articles, le client commande, Wave sécurise l'acompte de 50 %.</p>
 <div class="cta"><button id="heroGo" class="dark">Ouvrir ma boutique →</button><button id="heroLogin" class="ghost">J'ai déjà un compte</button></div>
 <ul class="facts"><li><b>50</b><span>secteurs d'activité</span></li><li><b>50 %</b><span>d'acompte via Wave</span></li><li><b>★ 1 à 5</b><span>boutiques notées</span></li></ul></div>
-<div><div class="plate"><div id="demoTabs" class="seg"><button class="on" data-k="0">Sneaker</button><button data-k="1">Montre</button><button data-k="2">Wax</button><button data-k="3">Jus naturel</button></div>
-<div id="cmp" class="cmp" style="--p:50%"><div class="lay after"><svg class="prod" viewBox="0 0 200 150"><use id="useA" href="#p0"/></svg><em>Image pro</em></div><div class="lay before"><svg class="prod" viewBox="0 0 200 150"><use id="useB" href="#p0"/></svg><em>Photo brute</em></div><div class="hdl"><span>◂▸</span></div><input id="cmpR" type="range" min="0" max="100" value="50" aria-label="Comparer avant et après"></div>
-<p class="cap"><span><b id="figName">Sneaker</b> — avant / après</span><span>Glissez pour comparer</span></p></div></div>
+<div><div class="plate"><div id="demoTabs" class="seg"><button class="on" data-k="0">Montre</button><button data-k="1">Sac</button><button data-k="2">Sneaker</button><button data-k="3">Mèches</button></div>
+<div id="cmp" class="cmp" style="--p:50%"><div class="lay after"><img id="imgA" src="/demo-0b.jpg" alt="Montre : image publicitaire" width="560" height="560"><em>Après</em></div><div class="lay before"><img id="imgB" src="/demo-0a.jpg" alt="Montre : photo d'origine" width="560" height="560"><em>Avant</em></div><div class="hdl"><span>◂▸</span></div><input id="cmpR" type="range" min="0" max="100" value="50" aria-label="Comparer avant et après"></div>
+<p class="cap"><span><b id="figName">Montre</b> — avant / après</span><span>Glissez pour comparer</span></p></div></div>
 </div>
 <div class="how"><div><i>01</i><b>Créez votre boutique</b><p>Inscrivez-vous, présentez votre boutique, choisissez votre rayon et publiez vos articles avec photos.</p></div><div><i>02</i><b>Le client commande</b><p>Il paie 50 % d'acompte avec Wave. Vous recevez la commande et préparez la livraison.</p></div><div><i>03</i><b>Livrez, encaissez le solde</b><p>Le reste est réglé à la livraison. Le client note votre boutique et votre réputation grandit.</p></div></div>
 </div>

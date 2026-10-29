@@ -380,11 +380,21 @@ refresh();
   $('#hLogin').onclick = go; $('#heroLogin').onclick = go;
   $('#heroGo').onclick = () => { authMode(true); go(); };
   $('#cartBtn').onclick = () => $('#cartBox').scrollIntoView({ behavior: 'smooth' });
-  const NAMES = ['Sneaker', 'Montre', 'Wax', 'Jus naturel'], cmp = $('#cmp');
+  const NAMES = ['Montre', 'Sac', 'Sneaker', 'Mèches'], cmp = $('#cmp');
   $('#cmpR').oninput = e => cmp.style.setProperty('--p', e.target.value + '%');
   $('#demoTabs').onclick = e => { const b = e.target.closest('button'); if (!b) return;
     [...$('#demoTabs').children].forEach(x => x.classList.toggle('on', x === b));
-    const k = +b.dataset.k; $('#useA').setAttribute('href', '#p' + k); $('#useB').setAttribute('href', '#p' + k); $('#figName').textContent = NAMES[k]; };
+    const k = +b.dataset.k; $('#imgA').src = '/demo-' + k + 'b.jpg'; $('#imgB').src = '/demo-' + k + 'a.jpg';
+    $('#imgA').alt = NAMES[k] + ' : image publicitaire'; $('#imgB').alt = NAMES[k] + ' : photo d\'origine'; $('#figName').textContent = NAMES[k]; };
+  // Seules les paires complètes (avant + après) sont affichées : on peut n'envoyer que 2, 3 ou 4 paires
+  Promise.all([0, 1, 2, 3].map(k => Promise.all(['a', 'b'].map(s => new Promise(r => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = '/demo-' + k + s + '.jpg'; }))).then(r => r.every(Boolean))))
+    .then(okList => {
+      const btns = [...$('#demoTabs').children], first = okList.indexOf(true), n = okList.filter(Boolean).length;
+      btns.forEach((b, k) => { b.hidden = !okList[k]; });
+      if (first < 0) { $('.plate').parentElement.hidden = true; $('.heroTop').style.gridTemplateColumns = '1fr'; return; }
+      if (n < 2) $('#demoTabs').hidden = true;
+      if (!okList[0]) btns[first].click();
+    });
 })();
 // ---- Design : titres mot par mot, fond de courbes de niveau ----
 (() => {

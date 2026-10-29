@@ -34,7 +34,8 @@ app.use(express.json({ limit: '50kb' }));
 app.use(cookie());
 // Fichiers publics servis un par un (racine du dépôt OU dossier public/)
 const path = require('path');
-const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style.css', 'admin.css'];
+const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style.css', 'admin.css',
+  ...['0', '1', '2', '3'].flatMap(k => ['a', 'b'].map(s => 'demo-' + k + s + '.jpg'))]; // photos de la démo d'accueil
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
 app.get('/version', (req, res) => res.type('text').send('version-fonctions-2026-10-25'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
