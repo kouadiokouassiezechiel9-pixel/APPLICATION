@@ -395,7 +395,7 @@ refresh();
       const nx = ((i / cols) * 2 - 1) * asp * SCALE, ny = ((j / rows) * 2 - 1) * SCALE;
       v[j * (cols + 1) + i] = field(nx + Math.sin(ny * 0.8 + t * 0.7) * AMP, ny + Math.cos(nx * 0.7 - t * 0.6) * AMP, t) * COUNT;
     }
-    ctx.clearRect(0, 0, w, h); ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.clearRect(0, 0, w, h); ctx.strokeStyle = 'rgba(14,34,51,0.07)'; ctx.lineWidth = 1; ctx.beginPath();
     const seg = (p, q) => { ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); };
     for (let L = 0.5; L < COUNT; L += 1) for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
       const a = v[j * (cols + 1) + i], b = v[j * (cols + 1) + i + 1], c = v[(j + 1) * (cols + 1) + i + 1], d = v[(j + 1) * (cols + 1) + i];
