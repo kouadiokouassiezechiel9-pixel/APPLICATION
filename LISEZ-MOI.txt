@@ -1,0 +1,13 @@
+MARKETPLACE - VERSION COMPLETE (tous les fichiers sont a la RACINE, aucun sous-dossier)
+
+Fichiers a mettre dans le depot GitHub (remplacer les anciens) :
+  server.js  package.json  render.yaml  schema.sql  .gitignore
+  index.html  app.js  admin.html  admin.js
+
+Apres l'envoi sur GitHub, Render redeploie seul (3 a 5 minutes).
+Verification : ouvrir  https://VOTRE-ADRESSE.onrender.com/version
+  -> doit afficher : version-fonctions-2026-10-25
+
+Espace admin : https://VOTRE-ADRESSE.onrender.com/admin.html
+Variables Render a renseigner : ADMIN_EMAIL, ADMIN_PASSWORD (12 caracteres min.),
+WAVE_API_KEY, WAVE_SIGNING_SECRET, WAVE_WEBHOOK_SECRET.

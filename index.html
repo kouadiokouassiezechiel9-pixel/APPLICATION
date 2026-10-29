@@ -60,10 +60,27 @@ textarea:focus{outline:1px solid var(--acc);border-color:var(--acc)}
 .desc{white-space:pre-wrap}
 #shopInfo{max-width:560px}
 #logoBox{margin:8px 0}
+.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.ph1{position:relative;display:inline-block}
+.ph1 .x{position:absolute;top:-6px;right:-6px;margin:0;padding:0 7px;font-size:1rem;line-height:1.4;clip-path:none;border-radius:50%;background:#3a0f0f;color:#ffd0d0;box-shadow:none}
+.gal{position:relative}
+.gal .nav{position:absolute;top:38%;margin:0;padding:6px 12px;font-size:1.4rem;line-height:1;clip-path:none;box-shadow:none;background:rgba(0,0,0,.6);color:#fff}
+.gal .l{left:6px}.gal .r{right:6px}
+.cnt{position:absolute;right:8px;bottom:14px;background:rgba(0,0,0,.65);padding:2px 8px;font-size:.75rem}
+.old{color:var(--mut)}.promo{color:var(--acc)}
+.badge{background:var(--acc);color:#090a0b;padding:1px 7px;font-weight:700;font-size:.8rem}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0}
+.kpi{background:var(--panel2);border:1px solid var(--line);padding:10px;display:flex;flex-direction:column}
+.kpi b{font-family:var(--disp);font-size:1.25rem;color:var(--acc)}
+.bars{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding:6px 0}
+.bar{display:flex;flex-direction:column;align-items:center;font-size:.65rem;color:var(--mut)}
+.bar i{display:block;width:18px;background:var(--acc)}
+#bell.on{background:var(--acc);color:#090a0b}
+#notifs{max-width:560px}
 </style></head><body>
 <canvas id="contours" aria-hidden="true"></canvas>
 <div id="toast" hidden role="status"></div>
-<header><h1>Marketplace</h1><div><span id="who"></span> <button id="logout" hidden>[ Déconnexion → ]</button></div></header>
+<header><h1>Marketplace</h1><div><span id="who"></span> <button id="bell" hidden>Notifications</button> <button id="logout" hidden>[ Déconnexion → ]</button></div></header>
 
 <div id="modeBar" hidden><button id="modeMerchant">Mon espace commerçant</button> <button id="modeClient">Acheter sur la marketplace</button></div>
 <section id="auth"><h2>Connexion / Inscription</h2>
@@ -93,12 +110,14 @@ textarea:focus{outline:1px solid var(--acc);border-color:var(--acc)}
 <section id="merchant" hidden><h2>Espace commerçant</h2>
 <p id="quota"></p>
 <div id="starsBox"></div>
+<h3>Statistiques</h3><div id="statsBox"></div>
 <h3>Ma boutique</h3>
 <p class="small">Présentez votre boutique : c'est ce que les clients voient dans « Voir les boutiques disponibles ».</p>
 <div id="logoBox"><img id="logoPrev" class="logo" alt="Logo de la boutique" hidden><br><label class="small">Logo de la boutique</label><br><input id="logoFile" type="file" accept="image/*"></div>
 <div id="shopForm">
 <input id="shName" maxlength="80" placeholder="Nom de la boutique"><br>
 <input id="shLoc" maxlength="120" placeholder="Localisation (commune, quartier, repère)"><br>
+<input id="shWa" maxlength="20" placeholder="Numéro WhatsApp de la boutique (visible par les clients)"><br>
 <input id="shYears" type="number" min="0" max="100" placeholder="Depuis combien d'années ? (ex : 5)"><br>
 <textarea id="shDesc" maxlength="1000" rows="5" placeholder="Parlez de votre boutique : ce que vous vendez ou faites, depuis quand vous êtes installés, où vous êtes. Exemple : Nous sommes une boutique d'import-export de voitures installée en Côte d'Ivoire depuis plusieurs années."></textarea><br>
 <button id="shSave">Enregistrer ma boutique</button>
@@ -114,7 +133,7 @@ textarea:focus{outline:1px solid var(--acc);border-color:var(--acc)}
 <input id="ad" placeholder="Description"><br>
 <input id="adet" placeholder="Détails de l'article (ex : pointure 43, taille M, 128 Go, rouge, 2 kg...)"><br>
 <select id="acat"><option value="">Rayon de l'article (obligatoire)</option></select><br>
-<label class="small">Photo de l'article</label><br><input id="aphoto" type="file" accept="image/*"><br><img id="apreview" class="prev" alt="Aperçu" hidden><br>
+<label class="small">Photos de l'article (une ou plusieurs)</label><br><input id="aphoto" type="file" accept="image/*" multiple><br><div id="apreview" class="thumbs" hidden></div>
 <label><input id="legal" type="checkbox"> Je certifie que ce produit est légal à la vente en Côte d'Ivoire</label><br>
 <button id="add">Ajouter</button>
 </div>
@@ -122,6 +141,10 @@ textarea:focus{outline:1px solid var(--acc);border-color:var(--acc)}
 <h3>Commandes reçues</h3><div id="morders"></div></section>
 
 <dialog id="shopInfo"></dialog>
+
+<dialog id="notifs"><h2>Notifications</h2>
+<div id="notifList"></div>
+<p><button id="notifClose">Fermer</button></p></dialog>
 
 <dialog id="rayons"><h2>Choisissez un rayon</h2>
 <p class="small">Pour optimiser votre navigation, veuillez choisir un rayon.</p>

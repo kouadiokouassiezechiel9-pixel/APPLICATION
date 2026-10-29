@@ -47,7 +47,8 @@ const ROLE_FR = { client: 'client', merchant: 'commerçant', admin: 'administrat
 const authMode = reg => { $('#loginBox').hidden = reg; $('#registerBox').hidden = !reg; };
 async function refresh() {
   try { me = await api('me'); } catch { me = null; }
-  $('#auth').hidden = !!me; $('#logout').hidden = !me;
+  $('#auth').hidden = !!me; $('#logout').hidden = !me; $('#bell').hidden = !me || me.role === 'admin';
+  if (me && me.role !== 'admin') { pollNotifs(); if (!notifTimer) notifTimer = setInterval(pollNotifs, 30000); } else { clearInterval(notifTimer); notifTimer = null; setUnread(0); }
   if (!me) { mode = 'merchant'; authMode(false); }
   $('#who').textContent = me ? me.name + ' (' + (ROLE_FR[me.role] || me.role) + ')' : '';
   const isM = !!me && me.role === 'merchant';
@@ -75,6 +76,8 @@ async function loadMyOrders() {
     // boutiques dont les articles sont livrés : le client peut les noter (une fois par commande)
     const livrees = [...new Map(o.items.filter(i => i.status === 'delivered').map(i => [i.merchant_id, i.shop])).entries()];
     const notes = livrees.map(([mid, shop]) => {
+      const recu = o.items.some(i => i.merchant_id === mid && i.status === 'delivered' && i.received);
+      if (!recu) return el('p', {}, shop + ' a livré votre commande. ', el('button', { onclick: run(async () => { await api('orders/' + o.id + '/received', 'POST', { merchantId: mid }); say('Réception confirmée. Vous pouvez maintenant noter la boutique.'); await loadMyOrders(); }) }, 'J\'ai bien reçu ma commande'));
       if ((o.reviewed || []).includes(mid)) return el('p', { className: 'small' }, '✔ Vous avez noté ' + shop);
       const sel = el('select', {}, ...[5, 4, 3, 2, 1].map(n => el('option', { value: n }, n + ' / 5 ' + '★'.repeat(n))));
       return el('p', {}, 'Noter ' + shop + ' : ', sel,
@@ -131,6 +134,7 @@ function showShopInfo(s) {
     el('p', { className: 'small' }, [s.location, yearsText(s)].filter(Boolean).join(' · ')),
     s.description ? el('p', { className: 'desc' }, s.description) : el('p', { className: 'small' }, 'Cette boutique n\'a pas encore rédigé sa présentation.'),
     el('p', {}, el('button', { onclick: run(async () => { d.close(); await viewShopArticles(s); }) }, 'Voir ses articles'), ' ',
+      s.whatsapp ? el('button', { onclick: () => openWa(s.whatsapp, 'Bonjour ' + s.shop_name + ', je vous contacte depuis Marketplace.') }, 'WhatsApp') : '', ' ',
       el('button', { id: 'shopInfoClose', onclick: () => d.close() }, 'Fermer')));
   d.showModal();
 }
@@ -166,17 +170,58 @@ function drawStars(m) {
 async function search() {
   const list = await api('articles?q=' + encodeURIComponent($('#q').value) + (shopFilter ? '&shop=' + shopFilter : '') + (rayon ? '&category=' + rayon : ''));
   $('#results').replaceChildren(...list.map(a => el('div', { className: 'card' },
-    a.has_photo ? el('img', { className: 'ph', src: '/api/articles/' + a.id + '/photo', alt: a.name, loading: 'lazy' }) : '',
+    gallery(a),
     el('b', {}, a.name), el('p', { className: 'small' }, el('span', { className: 'stars' }, stars(a.stars)), a.rating ? ' ' + a.rating + '/5' : ''), a.category ? el('p', { className: 'small' }, catLabel(a.category)) : '', el('p', {}, a.description || ''),
     a.premium ? el('p', { className: 'small' }, '★ Premium') : '', el('p', { className: 'small' }, a.details || ''),
-    el('p', {}, fmt(a.price) + ' · ' + a.shop_name + ' · stock ' + a.stock),
+    priceLine(a),
     ...(me && a.merchant_id === me.id ? [el('p', { className: 'small' }, 'C\'est votre article')] : [
-    el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Poser une question'), ' ', el('button', { onclick: run(async () => showShopInfo(await api('shops/' + a.merchant_id))) }, 'La boutique'), ' ',
-    el('button', { onclick: () => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.price, qty: 1 }); drawCart(); } }, 'Ajouter au panier')]))));
+    el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Poser une question'), ' ', el('button', { onclick: run(async () => showShopInfo(await api('shops/' + a.merchant_id))) }, 'La boutique'), ' ', a.whatsapp ? el('button', { onclick: () => openWa(a.whatsapp, 'Bonjour, je suis intéressé(e) par « ' + a.name + ' » sur Marketplace.') }, 'WhatsApp') : '', ' ',
+    el('button', { onclick: () => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.promo_price || a.price, qty: 1 }); drawCart(); } }, 'Ajouter au panier')]))));
 }
 function drawCart() {
   $('#cart').replaceChildren(...cart.map(c => el('div', {}, c.name + ' × ' + c.qty + ' ',
     el('button', { onclick: () => { cart = cart.filter(x => x !== c); drawCart(); } }, 'Retirer'))));
+}
+// ---- Photos multiples, promotions, WhatsApp, statistiques, notifications ----
+const waLink = (num, text) => {
+  let d = String(num || '').replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2);
+  if (d && !d.startsWith('225') && d.length <= 10) d = '225' + d;   // numéros ivoiriens
+  return d ? 'https://wa.me/' + d + '?text=' + encodeURIComponent(text || '') : '';
+};
+const openWa = (num, text) => { const u = waLink(num, text); if (u) window.open(u, '_blank', 'noopener'); };
+function gallery(a) {
+  const ids = a.photos || []; if (!ids.length) return '';
+  let i = 0; const img = el('img', { className: 'ph', src: '/api/articles/photos/' + ids[0], alt: a.name, loading: 'lazy' });
+  if (ids.length === 1) return img;
+  const cnt = el('span', { className: 'cnt' }, '1/' + ids.length);
+  const go = d => { i = (i + d + ids.length) % ids.length; img.src = '/api/articles/photos/' + ids[i]; cnt.textContent = (i + 1) + '/' + ids.length; };
+  return el('div', { className: 'gal' }, img, el('button', { className: 'nav l', title: 'Photo précédente', onclick: () => go(-1) }, '‹'),
+    el('button', { className: 'nav r', title: 'Photo suivante', onclick: () => go(1) }, '›'), cnt);
+}
+const priceLine = a => a.promo_price
+  ? el('p', {}, el('s', { className: 'old' }, fmt(a.price)), ' ', el('b', { className: 'promo' }, fmt(a.promo_price)), ' ',
+      el('span', { className: 'badge' }, '−' + Math.round((1 - a.promo_price / a.price) * 100) + '%'), ' · ' + a.shop_name + ' · stock ' + a.stock)
+  : el('p', {}, fmt(a.price) + ' · ' + a.shop_name + ' · stock ' + a.stock);
+async function loadStats() {
+  const s = await api('merchant/stats'), max = Math.max(1, ...s.days.map(d => d.revenue));
+  const kpi = (l, v) => el('div', { className: 'kpi' }, el('b', {}, String(v)), el('span', { className: 'small' }, l));
+  $('#statsBox').replaceChildren(
+    el('div', { className: 'kpis' }, kpi('Ventes (commandes payées)', fmt(s.revenue)), kpi('7 derniers jours', fmt(s.d7)), kpi('30 derniers jours', fmt(s.d30)), kpi('Commandes', s.orders),
+      kpi('Articles vendus', s.items), kpi('À livrer', s.pending), kpi('Livrées', s.delivered), kpi('Note moyenne', s.reviews ? s.rating + '/5 (' + s.reviews + ')' : '—')),
+    s.top.length ? el('div', {}, el('p', { className: 'small' }, 'Articles les plus vendus'), ...s.top.map(t => el('p', {}, t.name + ' — ' + t.qty + ' vendu' + (t.qty > 1 ? 's' : '') + ' · ' + fmt(t.revenue)))) : el('p', { className: 'small' }, 'Pas encore de vente.'),
+    s.days.length ? el('div', {}, el('p', { className: 'small' }, 'Ventes des 14 derniers jours'),
+      el('div', { className: 'bars' }, ...s.days.map(d => el('div', { className: 'bar', title: d.day + ' : ' + fmt(d.revenue) }, el('i', { style: 'height:' + Math.max(6, Math.round(d.revenue / max * 100)) + 'px' }), el('span', {}, d.day))))) : '');
+}
+let notifTimer = null;
+function setUnread(n) { const b = $('#bell'); b.textContent = 'Notifications' + (n ? ' (' + n + ')' : ''); b.className = n ? 'on' : ''; document.title = (n ? '(' + n + ') ' : '') + 'Marketplace'; }
+async function pollNotifs() { if (!me) return; try { setUnread((await api('notifications')).unread); } catch {} }
+async function openNotifs() {
+  const r = await api('notifications');
+  $('#notifList').replaceChildren(...(r.items.length ? r.items : [null]).map(n => n
+    ? el('div', { className: 'card' }, el('b', {}, (n.read ? '' : '● ') + n.title), el('p', { className: 'small' }, n.body || ''), el('p', { className: 'small' }, new Date(n.created_at).toLocaleString('fr-FR')))
+    : el('p', {}, 'Aucune notification.')));
+  $('#notifs').showModal();
+  if (r.unread) { await api('notifications/read', 'POST', {}); setUnread(0); }
 }
 // ---- Photos : réduction dans le navigateur (max 800 px, JPEG) puis envoi ----
 async function compress(file, max = 800) {
@@ -193,7 +238,7 @@ async function compress(file, max = 800) {
 }
 async function sendPhoto(id, file) {
   const blob = await compress(file);
-  const r = await fetch('/api/merchant/articles/' + id + '/photo', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+  const r = await fetch('/api/merchant/articles/' + id + '/photos', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
   if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'Envoi de la photo impossible'); }
 }
 async function loadMerchant() {
@@ -207,17 +252,31 @@ async function loadMerchant() {
   else if (m.quota <= m.used) need = 'Vous avez atteint votre capacité de ' + m.quota + ' articles. Payez un palier supérieur pour en ajouter.';
   $('#addBox').hidden = need !== ''; $('#payFirst').hidden = need === ''; $('#payFirst').textContent = need;
   drawStars(m);
+  loadStats().catch(() => {});
   fillShop(m);
   await fillCats();
   $('#quota').textContent = (m.validated ? '' : 'Compte en attente de validation. ') + (m.plan ? 'Abonnement ' + m.plan + ' jusqu\'au ' + new Date(m.plan_expires_at).toLocaleDateString('fr-FR') : 'Aucun abonnement mensuel actif : vos articles sont masqués') + ' · Articles en ligne : ' + m.used + ' / ' + m.quota;
   $('#tier').replaceChildren(...[10, 20, 30, 40, 50, 100].map(n => el('option', { value: n }, n + ' articles - ' + fmt(tier(n)))));
   const list = await api('merchant/articles');
-  $('#mine').replaceChildren(...list.map(a => el('div', { className: 'row' },
-    a.has_photo ? el('img', { className: 'thumb', src: '/api/articles/' + a.id + '/photo?v=' + Date.now(), alt: '' }) : '',
-    a.name + (a.details ? ' (' + a.details + ')' : '') + ' - ' + fmt(a.price) + ' - stock ' + a.stock + ' ',
-    el('label', { className: 'btn' }, a.has_photo ? 'Changer la photo' : 'Ajouter une photo',
-      el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: run(async ev => { const f = ev.target.files[0]; if (!f) return; await sendPhoto(a.id, f); say('Photo enregistrée.'); await loadMerchant(); }) })),
-    el('button', { onclick: run(async () => { await api('merchant/articles/' + a.id, 'DELETE'); await loadMerchant(); }) }, 'Supprimer'))));
+  $('#mine').replaceChildren(...list.map(a => {
+    const pp = el('input', { type: 'number', min: 1, placeholder: 'Prix promo', value: a.promo_price || '' }), pu = el('input', { type: 'date', value: a.promo_until || '' });
+    return el('div', { className: 'row' },
+      el('div', { className: 'thumbs' }, ...(a.photos || []).map(pid => el('span', { className: 'ph1' },
+        el('img', { className: 'thumb', src: '/api/articles/photos/' + pid + '?v=' + Date.now(), alt: '' }),
+        el('button', { className: 'x', title: 'Retirer cette photo', onclick: run(async () => { await api('merchant/articles/' + a.id + '/photos/' + pid, 'DELETE'); await loadMerchant(); }) }, '×')))),
+      el('b', {}, a.name), (a.details ? ' (' + a.details + ')' : '') + ' · ',
+      ...(a.promo_price ? [el('s', { className: 'old' }, fmt(a.price)), ' ', el('b', { className: 'promo' }, fmt(a.promo_price)), a.promo_until ? ' (jusqu\'au ' + a.promo_until + ')' : ''] : [fmt(a.price)]),
+      ' · stock ' + a.stock + ' ',
+      el('div', {},
+        el('label', { className: 'btn' }, (a.photos || []).length ? 'Ajouter des photos' : 'Ajouter des photos',
+          el('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, onchange: run(async ev => {
+            const fs = [...ev.target.files]; if (!fs.length) return; let n = 0; for (const f of fs) { await sendPhoto(a.id, f); n++; }
+            say(n + ' photo' + (n > 1 ? 's' : '') + ' enregistrée' + (n > 1 ? 's' : '') + '.'); await loadMerchant(); }) }))),
+      el('div', {}, el('span', { className: 'small' }, 'Promotion : '), pp, el('span', { className: 'small' }, ' jusqu\'au (facultatif) '), pu,
+        el('button', { onclick: run(async () => { await api('merchant/articles/' + a.id + '/promo', 'POST', { price: pp.value ? +pp.value : null, until: pu.value || null }); say(pp.value ? 'Promotion enregistrée.' : 'Promotion retirée.'); await loadMerchant(); }) }, a.promo_price ? 'Modifier la promo' : 'Appliquer la promo'),
+        a.promo_price ? el('button', { onclick: run(async () => { await api('merchant/articles/' + a.id + '/promo', 'POST', { price: null }); say('Promotion retirée.'); await loadMerchant(); }) }, 'Retirer la promo') : ''),
+      el('button', { onclick: run(async () => { await api('merchant/articles/' + a.id, 'DELETE'); await loadMerchant(); }) }, 'Supprimer'));
+  }));
   const od = await api('merchant/orders');
   $('#morders').replaceChildren(...(od.length ? od : [null]).map(o => o ? el('div', { className: 'card' },
     el('b', {}, 'Commande #' + o.id + ' - ' + fmt(o.total) + ' - ' + STATUS[o.status]),
@@ -232,13 +291,13 @@ $('#go').onclick = run(search);
 let shopDirty = false;
 function fillShop(m) {
   if (shopDirty) return;   // ne pas écraser ce que le commerçant est en train de taper
-  $('#shName').value = m.shop_name || ''; $('#shLoc').value = m.location || '';
+  $('#shName').value = m.shop_name || ''; $('#shLoc').value = m.location || ''; $('#shWa').value = m.whatsapp || '';
   $('#shYears').value = m.years == null ? '' : m.years; $('#shDesc').value = m.description || '';
   const p = $('#logoPrev'); p.hidden = !m.has_logo; if (m.has_logo) p.src = '/api/merchant/logo?v=' + Date.now();
 }
 $('#shopForm').oninput = () => { shopDirty = true; };
 $('#shSave').onclick = run(async () => {
-  await api('merchant/profile', 'POST', { shopName: $('#shName').value, location: $('#shLoc').value || undefined,
+  await api('merchant/profile', 'POST', { shopName: $('#shName').value, location: $('#shLoc').value || undefined, whatsapp: $('#shWa').value || undefined,
     description: $('#shDesc').value || undefined, years: $('#shYears').value === '' ? undefined : +$('#shYears').value });
   shopDirty = false; say('Votre boutique a été enregistrée.'); await loadMerchant();
 });
@@ -249,6 +308,8 @@ $('#logoFile').onchange = run(async ev => {
   if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'Envoi du logo impossible'); }
   ev.target.value = ''; const p = $('#logoPrev'); p.src = '/api/merchant/logo?v=' + Date.now(); p.hidden = false; say('Logo enregistré.');
 });
+$('#bell').onclick = run(openNotifs);
+$('#notifClose').onclick = () => $('#notifs').close();
 $('#rayonBtn').onclick = run(openRayons);
 $('#rayonAll').onclick = run(async () => chooseRayon(''));
 $('#toRegister').onclick = () => authMode(true);
@@ -294,14 +355,15 @@ $('#ckOk').onclick = run(async () => {
 $('#planStd').onclick = run(async () => { goPay(await api('merchant/plan', 'POST', { tier: 'standard' })); });
 $('#planPre').onclick = run(async () => { goPay(await api('merchant/plan', 'POST', { tier: 'premium' })); });
 $('#pay').onclick = run(async () => goPay(await api('merchant/subscribe', 'POST', { quota: +$('#tier').value })));
-$('#aphoto').onchange = () => { const f = $('#aphoto').files[0], p = $('#apreview'); if (!f) { p.hidden = true; return; } p.src = URL.createObjectURL(f); p.hidden = false; };
+$('#aphoto').onchange = () => { const p = $('#apreview'), fs = [...$('#aphoto').files]; p.replaceChildren(...fs.map(f => el('img', { className: 'prev', src: URL.createObjectURL(f), alt: '' }))); p.hidden = !fs.length; };
 $('#add').onclick = run(async () => {
   if (!$('#legal').checked) throw new Error('Vous devez certifier que le produit est légal en Côte d\'Ivoire');
   if (!$('#acat').value) throw new Error('Choisissez le rayon de l\'article');
   const created = await api('merchant/articles', 'POST', { name: $('#an').value, price: +$('#ap').value, stock: +$('#as').value, description: $('#ad').value || undefined, details: $('#adet').value || undefined, category: $('#acat').value, legalConfirm: $('#legal').checked });
-  const file = $('#aphoto').files[0]; let msg = 'Article ajouté.', ok = true;
-  if (file) { try { await sendPhoto(created.id, file); msg = 'Article et photo enregistrés.'; } catch (e) { msg = 'Article ajouté, mais la photo n\'a pas été envoyée : ' + e.message + ' (vous pouvez l\'ajouter depuis la liste ci-dessous).'; ok = false; } }
-  $('#aphoto').value = ''; $('#apreview').hidden = true;
+  const files = [...$('#aphoto').files]; let msg = 'Article ajouté.', ok = true, n = 0;
+  if (files.length) { try { for (const f of files) { await sendPhoto(created.id, f); n++; } msg = 'Article et ' + n + ' photo' + (n > 1 ? 's' : '') + ' enregistrés.'; }
+    catch (e) { msg = 'Article ajouté avec ' + n + ' photo(s), mais : ' + e.message + ' (vous pouvez ajouter les autres depuis la liste ci-dessous).'; ok = false; } }
+  $('#aphoto').value = ''; $('#apreview').replaceChildren(); $('#apreview').hidden = true;
   await loadMerchant(); say(msg, ok);
 });
 refresh();

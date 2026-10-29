@@ -17,6 +17,9 @@ async function dash() {
     ? el('div', { className: 'row' }, m.shop_name + ' - ' + m.name + ' (' + m.email + ') ',
         el('button', { onclick: run(async () => { await api('admin/merchants/' + m.id + '/validate', 'POST', {}); await dash(); }) }, 'Valider'))
     : el('p', {}, 'Aucun commerçant en attente.')));
+  const nt = await api('notifications');
+  $('#adminNotifs').replaceChildren(...(nt.items.length ? nt.items.slice(0, 10) : [null]).map(n => n ? el('div', { className: 'row' }, (n.read ? '' : '● ') + n.title + (n.body ? ' — ' + n.body : '')) : el('p', {}, 'Aucune notification.')));
+  if (nt.unread) await api('notifications/read', 'POST', {});
   const sr = await api('admin/star-requests');
   $('#starReq').replaceChildren(...(sr.length ? sr : [null]).map(m => m
     ? el('div', { className: 'row' }, m.shop_name + ' (' + m.email + ') · ' + (m.rating ? m.rating + '/5, ' + m.reviews + ' avis' : 'aucun avis') + ' ',

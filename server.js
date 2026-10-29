@@ -36,7 +36,7 @@ app.use(cookie());
 const path = require('path');
 const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style.css', 'admin.css'];
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
-app.get('/version', (req, res) => res.type('text').send('version-mdp-2026-10-24'));
+app.get('/version', (req, res) => res.type('text').send('version-fonctions-2026-10-25'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
 for (const n of pagesPubliques) app.get('/' + n, (req, res) => { const f = trouver(n); f ? res.sendFile(f) : res.status(404).end(); });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -48,7 +48,7 @@ const wrap = f => (req, res, next) => f(req, res, next).catch(e => {
 const parse = (schema, req, res) => {
   const r = schema.safeParse(req.body);
   if (!r.success) {
-    const noms = { name: 'Nom', email: 'E-mail', password: 'Mot de passe (8 caractères minimum)', shopName: 'Nom de la boutique', phone: 'Téléphone', location: 'Localisation', code: 'Code (6 chiffres)', shopName: 'Nom de la boutique', description: 'Description', years: 'Années d\'existence', category: 'Rayon de l\'article' };
+    const noms = { name: 'Nom', email: 'E-mail', password: 'Mot de passe (8 caractères minimum)', shopName: 'Nom de la boutique', phone: 'Téléphone', location: 'Localisation', code: 'Code (6 chiffres)', shopName: 'Nom de la boutique', description: 'Description', years: 'Années d\'existence', whatsapp: 'Numéro WhatsApp', category: 'Rayon de l\'article' };
     const champ = r.error.issues[0] && r.error.issues[0].path[0];
     res.status(400).json({ error: 'Champ à corriger : ' + (noms[champ] || champ || 'formulaire') }); return null;
   }
@@ -95,6 +95,7 @@ app.post('/api/register', limiter, wrap(async (req, res) => {
       if (d.role === 'merchant')
         await c.query('INSERT INTO merchants(user_id,shop_name,location) VALUES($1,$2,$3)', [u.rows[0].id, d.shopName, d.location || null]);
     });
+    if (d.role === 'merchant') notifyAdmins(pool, 'Nouveau commerçant à valider', d.shopName);
     res.status(201).json({ ok: true });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Cet e-mail a déjà un compte. Utilisez le bloc Connexion avec cet e-mail et votre mot de passe.' });
@@ -205,7 +206,7 @@ async function startPayment(userId, kind, amount, ref) {
 }
 // Appelé uniquement quand Wave confirme le paiement (idempotent : ne s'applique qu'une fois)
 async function applyPayment(id) {
-  return tx(async c => {
+  const paid = await tx(async c => {
     const p = (await c.query("UPDATE payments SET status='paid' WHERE id=$1 AND status='pending' RETURNING *", [id])).rows[0];
     if (!p) return false;
     if (p.kind === 'plan') {
@@ -219,8 +220,10 @@ async function applyPayment(id) {
     } else if (p.kind === 'stars') {
       await c.query("UPDATE merchants SET stars=5, star_request='none' WHERE user_id=$1 AND stars=3 AND star_request='approved'", [p.user_id]);
     }
-    return true;
+    return p;
   });
+  if (paid) notifyPayment(paid).catch(() => {});
+  return !!paid;
 }
 // Commande non payée : on annule et on remet le stock
 async function releaseOrder(orderId) {
@@ -278,6 +281,23 @@ const CATEGORIES = [
   { id: 'autres', label: 'Autres produits', hint: 'Tout ce qui ne rentre pas dans un autre rayon' },
 ];
 const CAT_IDS = CATEGORIES.map(c => c.id);
+const MAX_PHOTOS = 20;   // plafond technique par article (protège la base de données gratuite)
+// ---- Notifications (affichées dans l'application) ----
+const notify = (db, userId, kind, title, body, ref) => db.query('INSERT INTO notifications(user_id,kind,title,body,ref) VALUES($1::int,$2::text,$3::text,$4::text,$5::text)', [userId, kind, title, body || null, ref || null]).catch(() => {});
+const notifyOnce = (db, userId, kind, title, body, ref) => db.query(
+  `INSERT INTO notifications(user_id,kind,title,body,ref) SELECT $1::int,$2::text,$3::text,$4::text,$5::text
+   WHERE NOT EXISTS (SELECT 1 FROM notifications WHERE user_id=$1::int AND kind=$2::text AND ref=$5::text AND NOT read)`, [userId, kind, title, body || null, ref || null]).catch(() => {});
+const notifyAdmins = (db, title, body) => db.query("INSERT INTO notifications(user_id,kind,title,body) SELECT id,'admin',$1::text,$2::text FROM users WHERE role='admin'", [title, body || null]).catch(() => {});
+async function notifyPayment(p) {
+  if (p.kind === 'order') {
+    const id = p.ref.orderId;
+    const rows = (await pool.query('SELECT a.merchant_id, count(*)::int AS n, sum(oi.qty*oi.unit_price)::int AS total FROM order_items oi JOIN articles a ON a.id=oi.article_id WHERE oi.order_id=$1 GROUP BY a.merchant_id', [id])).rows;
+    for (const r of rows) await notify(pool, r.merchant_id, 'order', 'Nouvelle commande #' + id, r.n + ' article' + (r.n > 1 ? 's' : '') + ' · ' + r.total + ' francs · acompte payé');
+    await notify(pool, p.user_id, 'order', 'Acompte reçu', 'Votre commande #' + id + ' a été transmise aux boutiques.');
+  } else if (p.kind === 'plan') await notify(pool, p.user_id, 'billing', 'Abonnement mensuel activé', 'Votre boutique est visible pendant 30 jours.');
+  else if (p.kind === 'articles') await notify(pool, p.user_id, 'billing', 'Capacité d\'articles activée', 'Vous pouvez ajouter vos articles.');
+  else if (p.kind === 'stars') await notify(pool, p.user_id, 'stars', 'Boutique 5 étoiles', 'Félicitations, votre boutique passe à 5 étoiles.');
+}
 const STOP = new Set(['pointure', 'taille', 'de', 'du', 'des', 'la', 'le', 'les', 'en', 'pour', 'a', 'au', 'un', 'une']);
 const HAY = "translate(lower(coalesce(a.name,'')||' '||coalesce(a.description,'')||' '||coalesce(a.category,'')||' '||coalesce(a.details,'')),'àâäéèêëîïôöùûüç','aaaeeeeiioouuuc')";
 app.get('/api/articles', wrap(async (req, res) => {
@@ -292,7 +312,9 @@ app.get('/api/articles', wrap(async (req, res) => {
   const shopSql = extra.length ? ' AND ' + extra.join(' AND ') : '';
   const r = await pool.query(
     `SELECT * FROM (
-       SELECT a.id,a.name,a.description,a.details,a.price,a.stock,a.category,(a.photo IS NOT NULL) AS has_photo,m.shop_name,m.user_id AS merchant_id,m.stars,
+       SELECT a.id,a.name,a.description,a.details,a.price,a.stock,a.category,(SELECT COALESCE(json_agg(p.id ORDER BY p.position,p.id),'[]'::json) FROM article_photos p WHERE p.article_id=a.id) AS photos,
+         (CASE WHEN a.promo_price IS NOT NULL AND (a.promo_until IS NULL OR a.promo_until >= current_date) THEN a.promo_price END) AS promo_price,
+         m.whatsapp,m.shop_name,m.user_id AS merchant_id,m.stars,
          (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
          EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.tier='premium' AND p.status='active' AND p.expires_at>now()) AS premium,
          (${score}) AS score
@@ -325,7 +347,7 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
           `UPDATE articles a SET stock=a.stock-$1 FROM merchants m
            WHERE a.id=$2 AND a.online AND a.moderation='ok' AND a.stock>=$1 AND m.user_id=a.merchant_id AND m.validated
              AND EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.status='active' AND p.expires_at>now())
-           RETURNING a.price`, [it.qty, it.id]);
+           RETURNING (CASE WHEN a.promo_price IS NOT NULL AND (a.promo_until IS NULL OR a.promo_until >= current_date) THEN a.promo_price ELSE a.price END) AS price`, [it.qty, it.id]);
         if (!r.rowCount) throw new Error('STOCK');
         total += r.rows[0].price * it.qty;
         await c.query('INSERT INTO order_items(order_id,article_id,qty,unit_price) VALUES($1,$2,$3,$4)',
@@ -352,7 +374,7 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
 // ---------- Commerçant ----------
 app.get('/api/merchant/me', auth('merchant'), wrap(async (req, res) => {
   const r = await pool.query(
-    `SELECT m.validated, m.shop_name, m.location, m.description, (m.logo IS NOT NULL) AS has_logo,
+    `SELECT m.validated, m.shop_name, m.location, m.description, m.whatsapp, (m.logo IS NOT NULL) AS has_logo,
        CASE WHEN m.since_year IS NULL THEN NULL ELSE GREATEST(0, EXTRACT(YEAR FROM now())::int - m.since_year) END AS years,
        m.stars, m.star_request,
        (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
@@ -387,7 +409,9 @@ app.post('/api/merchant/subscribe', auth('merchant'), wrap(async (req, res) => {
 }));
 
 app.get('/api/merchant/articles', auth('merchant'), wrap(async (req, res) => {
-  res.json((await pool.query('SELECT id,name,details,price,stock,online,(photo IS NOT NULL) AS has_photo FROM articles WHERE merchant_id=$1 ORDER BY id DESC', [req.user.id])).rows);
+  res.json((await pool.query(`SELECT id,name,details,price,stock,online,promo_price,to_char(promo_until,'YYYY-MM-DD') AS promo_until,
+      (SELECT COALESCE(json_agg(p.id ORDER BY p.position,p.id),'[]'::json) FROM article_photos p WHERE p.article_id=articles.id) AS photos
+     FROM articles WHERE merchant_id=$1 ORDER BY id DESC`, [req.user.id])).rows);
 }));
 
 app.post('/api/merchant/articles', auth('merchant'), wrap(async (req, res) => {
@@ -414,20 +438,82 @@ app.post('/api/merchant/articles', auth('merchant'), wrap(async (req, res) => {
   res.status(201).json(out);
 }));
 
-// ---- Photos des articles (stockées en base : le disque de Render gratuit est effacé à chaque redémarrage) ----
-app.post('/api/merchant/articles/:id/photo', auth('merchant'), express.raw({ type: 'image/jpeg', limit: '400kb' }), wrap(async (req, res) => {
+// ---- Photos des articles : autant de photos que le commerçant veut (plafond technique : MAX_PHOTOS) ----
+app.post('/api/merchant/articles/:id/photos', auth('merchant'), express.raw({ type: 'image/jpeg', limit: '400kb' }), wrap(async (req, res) => {
   const b = req.body;
   if (!Buffer.isBuffer(b) || b.length < 100 || !(b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff))
     return res.status(400).json({ error: 'Photo invalide (format JPEG, 400 Ko maximum)' });
-  const r = await pool.query('UPDATE articles SET photo=$1 WHERE id=$2 AND merchant_id=$3', [b, +req.params.id || 0, req.user.id]);
-  if (!r.rowCount) return res.status(404).json({ error: 'Article introuvable' });
+  const aid = +req.params.id || 0;
+  const own = (await pool.query('SELECT (SELECT count(*)::int FROM article_photos WHERE article_id=a.id) AS n FROM articles a WHERE a.id=$1 AND a.merchant_id=$2', [aid, req.user.id])).rows[0];
+  if (!own) return res.status(404).json({ error: 'Article introuvable' });
+  if (own.n >= MAX_PHOTOS) return res.status(409).json({ error: 'Maximum ' + MAX_PHOTOS + ' photos par article' });
+  const r = await pool.query('INSERT INTO article_photos(article_id, position, photo) VALUES($1,$2,$3) RETURNING id', [aid, own.n, b]);
+  res.json({ ok: true, id: r.rows[0].id });
+}));
+app.delete('/api/merchant/articles/:id/photos/:pid', auth('merchant'), wrap(async (req, res) => {
+  const r = await pool.query('DELETE FROM article_photos p USING articles a WHERE p.id=$1 AND p.article_id=a.id AND a.id=$2 AND a.merchant_id=$3', [+req.params.pid || 0, +req.params.id || 0, req.user.id]);
+  if (!r.rowCount) return res.status(404).json({ error: 'Photo introuvable' });
   res.json({ ok: true });
 }));
-app.get('/api/articles/:id/photo', wrap(async (req, res) => {
-  const r = (await pool.query("SELECT photo FROM articles WHERE id=$1 AND moderation='ok' AND photo IS NOT NULL", [+req.params.id || 0])).rows[0];
+const sendJpeg = (res, buf) => res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=300' }).send(buf);
+app.get('/api/articles/photos/:pid', wrap(async (req, res) => {
+  const r = (await pool.query("SELECT p.photo FROM article_photos p JOIN articles a ON a.id=p.article_id WHERE p.id=$1 AND a.moderation='ok'", [+req.params.pid || 0])).rows[0];
   if (!r) return res.status(404).end();
-  res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=300' }).send(r.photo);
+  sendJpeg(res, r.photo);
 }));
+app.get('/api/articles/:id/photo', wrap(async (req, res) => {
+  const r = (await pool.query("SELECT p.photo FROM article_photos p JOIN articles a ON a.id=p.article_id WHERE a.id=$1 AND a.moderation='ok' ORDER BY p.position, p.id LIMIT 1", [+req.params.id || 0])).rows[0];
+  if (!r) return res.status(404).end();
+  sendJpeg(res, r.photo);
+}));
+// ---- Promotions : prix réduit, avec date de fin facultative ----
+app.post('/api/merchant/articles/:id/promo', auth('merchant'), wrap(async (req, res) => {
+  const d = parse(z.object({ price: z.number().int().min(1).nullable(), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional() }), req, res);
+  if (!d) return;
+  const id = +req.params.id || 0, a = (await pool.query('SELECT price FROM articles WHERE id=$1 AND merchant_id=$2', [id, req.user.id])).rows[0];
+  if (!a) return res.status(404).json({ error: 'Article introuvable' });
+  if (d.price !== null && d.price >= a.price) return res.status(400).json({ error: 'Le prix promotionnel doit être inférieur au prix normal (' + a.price + ' francs)' });
+  await pool.query('UPDATE articles SET promo_price=$1, promo_until=$2 WHERE id=$3', [d.price, d.price === null ? null : (d.until || null), id]);
+  res.json({ ok: true });
+}));
+// ---- Statistiques du commerçant ----
+app.get('/api/merchant/stats', auth('merchant'), wrap(async (req, res) => {
+  const base = "FROM order_items oi JOIN articles a ON a.id=oi.article_id JOIN orders o ON o.id=oi.order_id WHERE a.merchant_id=$1 AND o.payment_status='paid'", id = [req.user.id];
+  const tot = (await pool.query(
+    `SELECT count(DISTINCT o.id)::int AS orders, COALESCE(sum(oi.qty),0)::int AS items, COALESCE(sum(oi.qty*oi.unit_price),0)::int AS revenue,
+            COALESCE(sum(oi.qty*oi.unit_price) FILTER (WHERE o.created_at >= now() - interval '7 days'),0)::int AS d7,
+            COALESCE(sum(oi.qty*oi.unit_price) FILTER (WHERE o.created_at >= now() - interval '30 days'),0)::int AS d30,
+            count(DISTINCT o.id) FILTER (WHERE oi.status='pending')::int AS pending,
+            count(DISTINCT o.id) FILTER (WHERE oi.status='delivered')::int AS delivered ${base}`, id)).rows[0];
+  const top = (await pool.query(`SELECT a.name, sum(oi.qty)::int AS qty, sum(oi.qty*oi.unit_price)::int AS revenue ${base} GROUP BY a.id, a.name ORDER BY qty DESC, revenue DESC LIMIT 5`, id)).rows;
+  const days = (await pool.query(`SELECT to_char(o.created_at::date,'DD/MM') AS day, sum(oi.qty*oi.unit_price)::int AS revenue ${base} AND o.created_at >= now() - interval '14 days' GROUP BY o.created_at::date ORDER BY o.created_at::date`, id)).rows;
+  const rv = (await pool.query('SELECT count(*)::int AS reviews, round(avg(score)::numeric,1)::float AS rating FROM reviews WHERE merchant_id=$1', id)).rows[0];
+  res.json({ ...tot, top, days, ...rv });
+}));
+// ---- Confirmation de réception par le client (puis il peut noter la boutique) ----
+app.post('/api/orders/:id/received', auth('client', 'merchant'), wrap(async (req, res) => {
+  const d = parse(z.object({ merchantId: z.number().int() }), req, res);
+  if (!d) return;
+  const oid = +req.params.id || 0;
+  const r = await pool.query(
+    `UPDATE order_items oi SET received_at=now() FROM articles a, orders o
+     WHERE a.id=oi.article_id AND o.id=oi.order_id AND o.id=$1 AND o.client_id=$2 AND a.merchant_id=$3 AND oi.status='delivered' AND oi.received_at IS NULL`,
+    [oid, req.user.id, d.merchantId]);
+  if (!r.rowCount) return res.status(409).json({ error: 'Rien à confirmer : la boutique n\'a pas encore marqué la commande comme livrée, ou la réception est déjà confirmée' });
+  notify(pool, d.merchantId, 'order', 'Réception confirmée', 'Le client a confirmé avoir reçu la commande #' + oid + '.');
+  res.json({ ok: true });
+}));
+// ---- Notifications ----
+app.get('/api/notifications', auth('client', 'merchant', 'admin'), wrap(async (req, res) => {
+  const items = (await pool.query('SELECT id, kind, title, body, read, created_at FROM notifications WHERE user_id=$1 ORDER BY id DESC LIMIT 30', [req.user.id])).rows;
+  const unread = (await pool.query('SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read', [req.user.id])).rows[0].n;
+  res.json({ unread, items });
+}));
+app.post('/api/notifications/read', auth('client', 'merchant', 'admin'), wrap(async (req, res) => {
+  await pool.query('UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read', [req.user.id]);
+  res.json({ ok: true });
+}));
+
 app.delete('/api/merchant/articles/:id', auth('merchant'), wrap(async (req, res) => {
   const r = await pool.query('DELETE FROM articles WHERE id=$1 AND merchant_id=$2 AND NOT EXISTS (SELECT 1 FROM order_items WHERE article_id=$1)', [+req.params.id || 0, req.user.id]);
   if (!r.rowCount) return res.status(409).json({ error: 'Introuvable ou déjà commandé (mettez-le hors ligne)' });
@@ -439,7 +525,9 @@ app.get('/api/admin/merchants/pending', auth('admin'), wrap(async (req, res) => 
   res.json((await pool.query('SELECT u.id,u.name,u.email,m.shop_name,m.location FROM merchants m JOIN users u ON u.id=m.user_id WHERE NOT m.validated ORDER BY u.id')).rows);
 }));
 app.post('/api/admin/merchants/:id/validate', auth('admin'), wrap(async (req, res) => {
-  await pool.query('UPDATE merchants SET validated=true WHERE user_id=$1', [+req.params.id || 0]);
+  const vid = +req.params.id || 0;
+  const v = await pool.query('UPDATE merchants SET validated=true WHERE user_id=$1 AND NOT validated', [vid]);
+  if (v.rowCount) notify(pool, vid, 'admin', 'Boutique validée', 'Votre boutique est validée. Payez l\'abonnement mensuel et la capacité d\'articles pour apparaître chez les clients.');
   res.json({ ok: true });
 }));
 app.post('/api/admin/users/:id/suspend', auth('admin'), wrap(async (req, res) => {
@@ -470,12 +558,17 @@ app.post('/api/merchant/orders/:id/status', auth('merchant'), wrap(async (req, r
     'UPDATE order_items oi SET status=$1 FROM articles a WHERE a.id=oi.article_id AND a.merchant_id=$2 AND oi.order_id=$3',
     [d.status, req.user.id, +req.params.id || 0]);
   if (!r.rowCount) return res.status(404).json({ error: 'Commande introuvable' });
+  if (d.status !== 'pending') {
+    const oid = +req.params.id || 0, o = (await pool.query('SELECT client_id FROM orders WHERE id=$1', [oid])).rows[0];
+    const sh = (await pool.query('SELECT shop_name FROM merchants WHERE user_id=$1', [req.user.id])).rows[0];
+    if (o) notify(pool, o.client_id, 'order', 'Commande #' + oid + (d.status === 'delivered' ? ' : livrée' : ' : en préparation'), (sh ? sh.shop_name : 'La boutique') + (d.status === 'delivered' ? ' a livré votre commande. Confirmez la réception dans « Mes commandes », puis notez la boutique.' : ' prépare votre commande.'));
+  }
   res.json({ ok: true });
 }));
 app.get('/api/orders/mine', auth('client', 'merchant'), wrap(async (req, res) => {
   const r = await pool.query(
     `SELECT o.id, o.created_at, o.total, o.deposit, o.delivery_location, o.payment_method, o.payment_status,
-            json_agg(json_build_object('name', a.name, 'qty', oi.qty, 'status', oi.status, 'merchant_id', a.merchant_id, 'shop', m.shop_name)) AS items,
+            json_agg(json_build_object('name', a.name, 'qty', oi.qty, 'status', oi.status, 'received', oi.received_at IS NOT NULL, 'merchant_id', a.merchant_id, 'shop', m.shop_name)) AS items,
             COALESCE((SELECT json_agg(r.merchant_id) FROM reviews r WHERE r.order_id=o.id), '[]'::json) AS reviewed
      FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN articles a ON a.id=oi.article_id JOIN merchants m ON m.user_id=a.merchant_id
      WHERE o.client_id=$1 GROUP BY o.id ORDER BY o.id DESC LIMIT 50`, [req.user.id]);
@@ -525,6 +618,7 @@ app.post('/api/messages', msgLimiter, auth('client', 'merchant'), wrap(async (re
   let art = null;
   if (d.articleId) art = (await pool.query('SELECT id FROM articles WHERE id=$1 AND merchant_id=$2', [d.articleId, mid])).rows[0]?.id || null;
   await pool.query('INSERT INTO messages(client_id,merchant_id,sender_id,article_id,body) VALUES($1,$2,$3,$4,$5)', [cid, mid, req.user.id, art, d.body]);
+  notifyOnce(pool, isC ? mid : cid, 'msg', 'Nouveau message', req.user.name + ' vous a écrit.', String(req.user.id));
   res.status(201).json({ ok: true });
 }));
 
@@ -540,7 +634,7 @@ app.get('/api/categories', wrap(async (req, res) => {
   res.json(CATEGORIES.map(c => ({ ...c, count: n[c.id] || 0 })));
 }));
 // ---------- Présentation de la boutique (logo, description, localité, ancienneté) ----------
-const SHOP_COLS = `m.user_id AS id, m.shop_name, m.location, m.description, m.stars, (m.logo IS NOT NULL) AS has_logo,
+const SHOP_COLS = `m.user_id AS id, m.shop_name, m.location, m.description, m.whatsapp, m.stars, (m.logo IS NOT NULL) AS has_logo,
   CASE WHEN m.since_year IS NULL THEN NULL ELSE GREATEST(0, EXTRACT(YEAR FROM now())::int - m.since_year) END AS years,
   (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
   (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
@@ -578,13 +672,14 @@ app.post('/api/merchant/logo', auth('merchant'), express.raw({ type: 'image/jpeg
 }));
 app.post('/api/merchant/profile', auth('merchant'), wrap(async (req, res) => {
   const d = parse(z.object({ shopName: z.string().trim().min(2).max(80), location: z.string().trim().max(120).optional(),
-    description: z.string().trim().max(1000).optional(), years: z.number().int().min(0).max(100).optional() }), req, res);
+    description: z.string().trim().max(1000).optional(), years: z.number().int().min(0).max(100).optional(),
+    whatsapp: z.string().trim().max(20).regex(/^[0-9+ ]*$/, 'Numéro WhatsApp invalide').optional() }), req, res);
   if (!d) return;
   if (isBanned(d.shopName, d.description))
     return res.status(422).json({ error: 'Cette présentation mentionne un produit interdit à la vente en Côte d\'Ivoire.' });
   const since = d.years === undefined ? null : new Date().getFullYear() - d.years;   // l'ancienneté reste exacte d'année en année
-  await pool.query('UPDATE merchants SET shop_name=$1, location=$2, description=$3, since_year=$4 WHERE user_id=$5',
-    [d.shopName, d.location || null, d.description || null, since, req.user.id]);
+  await pool.query('UPDATE merchants SET shop_name=$1, location=$2, description=$3, since_year=$4, whatsapp=$5 WHERE user_id=$6',
+    [d.shopName, d.location || null, d.description || null, since, d.whatsapp || null, req.user.id]);
   res.json({ ok: true });
 }));
 // Le client note la boutique une fois la commande livrée (une note par commande et par boutique)
@@ -594,15 +689,19 @@ app.post('/api/orders/:id/review', auth('client', 'merchant'), wrap(async (req, 
   const oid = +req.params.id || 0;
   const ok = (await pool.query(
     `SELECT 1 FROM order_items oi JOIN articles a ON a.id=oi.article_id JOIN orders o ON o.id=oi.order_id
-     WHERE o.id=$1 AND o.client_id=$2 AND o.payment_status='paid' AND a.merchant_id=$3 AND a.merchant_id<>$2 AND oi.status='delivered' LIMIT 1`,
+     WHERE o.id=$1 AND o.client_id=$2 AND o.payment_status='paid' AND a.merchant_id=$3 AND a.merchant_id<>$2 AND oi.received_at IS NOT NULL LIMIT 1`,
     [oid, req.user.id, d.merchantId])).rows[0];
-  if (!ok) return res.status(403).json({ error: 'Vous pourrez noter la boutique une fois la commande livrée' });
+  if (!ok) return res.status(403).json({ error: 'Confirmez d\'abord la réception de votre commande, puis vous pourrez noter la boutique' });
   const ins = await pool.query(
     'INSERT INTO reviews(order_id,merchant_id,client_id,score,comment) VALUES($1,$2,$3,$4,$5) ON CONFLICT (order_id, merchant_id) DO NOTHING',
     [oid, d.merchantId, req.user.id, d.score, d.comment || null]);
   if (!ins.rowCount) return res.status(409).json({ error: 'Vous avez déjà noté cette boutique pour cette commande' });
   const s = (await pool.query('SELECT count(*)::int AS n, avg(score)::float AS a FROM reviews WHERE merchant_id=$1', [d.merchantId])).rows[0];
-  if (s.n >= RULES.minReviews && s.a >= RULES.minAvg) await pool.query('UPDATE merchants SET stars=3 WHERE user_id=$1 AND stars=1', [d.merchantId]);
+  notify(pool, d.merchantId, 'review', 'Nouvelle note : ' + d.score + '/5', 'Un client a noté votre boutique.');
+  if (s.n >= RULES.minReviews && s.a >= RULES.minAvg) {
+    const up = await pool.query('UPDATE merchants SET stars=3 WHERE user_id=$1 AND stars=1', [d.merchantId]);
+    if (up.rowCount) notify(pool, d.merchantId, 'stars', 'Votre boutique passe à 3 étoiles', 'Bravo, vos clients sont satisfaits.');
+  }
   res.json({ ok: true });
 }));
 // 3 -> 5 étoiles : le commerçant demande, l'admin confirme, puis le commerçant paie
@@ -612,6 +711,7 @@ app.post('/api/merchant/stars/request', auth('merchant'), wrap(async (req, res) 
   if (m.stars < 3) return res.status(403).json({ error: 'Il faut d\'abord atteindre 3 étoiles' });
   if (m.star_request !== 'none') return res.status(409).json({ error: 'Une demande est déjà en cours' });
   await pool.query("UPDATE merchants SET star_request='requested' WHERE user_id=$1", [req.user.id]);
+  notifyAdmins(pool, 'Demande de 5 étoiles', 'Une boutique demande le passage à 5 étoiles.');
   res.json({ ok: true });
 }));
 app.post('/api/merchant/stars/pay', auth('merchant'), wrap(async (req, res) => {
@@ -634,6 +734,7 @@ app.post('/api/admin/merchants/:id/stars', auth('admin'), wrap(async (req, res) 
   const r = await pool.query("UPDATE merchants SET star_request=$1 WHERE user_id=$2 AND star_request='requested' AND stars=3",
     [d.decision === 'approve' ? 'approved' : 'none', +req.params.id || 0]);
   if (!r.rowCount) return res.status(404).json({ error: 'Demande introuvable' });
+  notify(pool, +req.params.id || 0, 'stars', d.decision === 'approve' ? 'Passage à 5 étoiles confirmé' : 'Demande de 5 étoiles refusée', d.decision === 'approve' ? 'L\'administrateur a confirmé. Payez avec Wave pour passer à 5 étoiles.' : 'L\'administrateur n\'a pas validé votre demande pour le moment.');
   res.json({ ok: true });
 }));
 
@@ -645,7 +746,8 @@ app.get('/api/admin/articles', auth('admin'), wrap(async (req, res) => {
 app.post('/api/admin/articles/:id/remove', auth('admin'), wrap(async (req, res) => {
   const d = parse(z.object({ reason: z.string().trim().min(3).max(300) }), req, res);
   if (!d) return;
-  await pool.query("UPDATE articles SET moderation='removed', online=false, removed_reason=$1 WHERE id=$2", [d.reason, +req.params.id || 0]);
+  const rm = await pool.query("UPDATE articles SET moderation='removed', online=false, removed_reason=$1 WHERE id=$2 RETURNING merchant_id, name", [d.reason, +req.params.id || 0]);
+  if (rm.rows[0]) notify(pool, rm.rows[0].merchant_id, 'admin', 'Article retiré : ' + rm.rows[0].name, d.reason);
   res.json({ ok: true });
 }));
 
@@ -664,6 +766,21 @@ app.post('/api/admin/articles/:id/remove', auth('admin'), wrap(async (req, res) 
       score INT NOT NULL CHECK (score BETWEEN 1 AND 5), comment TEXT, created_at TIMESTAMPTZ DEFAULT now(),
       UNIQUE(order_id, merchant_id));
     CREATE INDEX IF NOT EXISTS idx_reviews_merchant ON reviews(merchant_id);`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS article_photos(
+      id SERIAL PRIMARY KEY, article_id INT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+      position INT NOT NULL DEFAULT 0, photo BYTEA NOT NULL, created_at TIMESTAMPTZ DEFAULT now());
+    CREATE INDEX IF NOT EXISTS idx_article_photos ON article_photos(article_id, position, id);
+    INSERT INTO article_photos(article_id, position, photo) SELECT a.id, 0, a.photo FROM articles a
+      WHERE a.photo IS NOT NULL AND NOT EXISTS (SELECT 1 FROM article_photos p WHERE p.article_id=a.id);
+    UPDATE articles a SET photo=NULL WHERE a.photo IS NOT NULL AND EXISTS (SELECT 1 FROM article_photos p WHERE p.article_id=a.id);
+    ALTER TABLE articles ADD COLUMN IF NOT EXISTS promo_price INT;
+    ALTER TABLE articles ADD COLUMN IF NOT EXISTS promo_until DATE;
+    ALTER TABLE merchants ADD COLUMN IF NOT EXISTS whatsapp TEXT;
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ;
+    CREATE TABLE IF NOT EXISTS notifications(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE, kind TEXT NOT NULL,
+      title TEXT NOT NULL, body TEXT, ref TEXT, read BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read, id DESC);`);
   const { ADMIN_EMAIL: e, ADMIN_PASSWORD: p } = process.env;
   if (e && p && p.length >= 12) {
     const has = await pool.query("SELECT 1 FROM users WHERE role='admin'");
