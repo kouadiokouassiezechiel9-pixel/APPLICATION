@@ -27,7 +27,11 @@ const ss = { get: k => { try { return sessionStorage.getItem(k) || ''; } catch {
 let CATS = [], rayon = ss.get('rayon');
 const catLabel = id => (CATS.find(c => c.id === id) || {}).label || '';
 async function loadCats() { if (!CATS.length) CATS = await api('categories'); }
-function updateRayonBar() { $('#rayonName').textContent = rayon ? catLabel(rayon) : 'Tous les rayons'; }
+function drawTabs() {
+  const t = $('#rayonTabs'); if (!t) return;
+  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, c.label)));
+}
+function updateRayonBar() { $('#rayonName').textContent = rayon ? catLabel(rayon) : 'Tous les rayons'; drawTabs(); }
 async function chooseRayon(id) {
   rayon = id; ss.set('rayon', id); if ($('#rayons').open) $('#rayons').close();
   updateRayonBar(); await search(); $('#results').scrollIntoView({ behavior: 'smooth' });
@@ -55,7 +59,8 @@ async function refresh() {
   const buying = !!me && (me.role === 'client' || (isM && mode === 'client'));
   $('#modeBar').hidden = !isM;
   $('#modeMerchant').className = mode === 'merchant' ? 'on' : ''; $('#modeClient').className = mode === 'client' ? 'on' : '';
-  $('#searchBox').hidden = !buying; $('#cartBox').hidden = !buying;   // recherche et panier : clients, et commerçants en mode achat
+  $('#searchBox').hidden = !buying; $('#cartBox').hidden = !buying;
+  $('#rayonTabs').hidden = !buying; $('#cartBtn').hidden = !buying; $('#hero').hidden = !!me; $('#hLogin').hidden = !!me;   // recherche et panier : clients, et commerçants en mode achat
   if (buying) {
     await loadCats().catch(() => {}); updateRayonBar(); await search();
     if (!ss.get('rayonVu')) openRayons().catch(() => {});   // message d'accueil : choisir un rayon
@@ -179,6 +184,7 @@ async function search() {
     el('button', { onclick: () => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.promo_price || a.price, qty: 1 }); drawCart(); } }, 'Ajouter au panier')]))));
 }
 function drawCart() {
+  $('#cartN').textContent = cart.reduce((n, c) => n + c.qty, 0);
   $('#cart').replaceChildren(...cart.map(c => el('div', {}, c.name + ' × ' + c.qty + ' ',
     el('button', { onclick: () => { cart = cart.filter(x => x !== c); drawCart(); } }, 'Retirer'))));
 }
@@ -368,6 +374,18 @@ $('#add').onclick = run(async () => {
 });
 refresh();
 
+// ---- Accueil : démo avant/après, boutons d'accès ----
+(() => {
+  const go = () => { $('#auth').scrollIntoView({ behavior: 'smooth' }); };
+  $('#hLogin').onclick = go; $('#heroLogin').onclick = go;
+  $('#heroGo').onclick = () => { authMode(true); go(); };
+  $('#cartBtn').onclick = () => $('#cartBox').scrollIntoView({ behavior: 'smooth' });
+  const NAMES = ['Sneaker', 'Montre', 'Wax', 'Jus naturel'], cmp = $('#cmp');
+  $('#cmpR').oninput = e => cmp.style.setProperty('--p', e.target.value + '%');
+  $('#demoTabs').onclick = e => { const b = e.target.closest('button'); if (!b) return;
+    [...$('#demoTabs').children].forEach(x => x.classList.toggle('on', x === b));
+    const k = +b.dataset.k; $('#useA').setAttribute('href', '#p' + k); $('#useB').setAttribute('href', '#p' + k); $('#figName').textContent = NAMES[k]; };
+})();
 // ---- Design : titres mot par mot, fond de courbes de niveau ----
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
