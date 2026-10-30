@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Marketplace</title>
-<meta name="theme-color" content="#f4f0e8">
+<title>Vendora</title>
+<meta name="theme-color" content="#f0501e">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:light;--bg:#f4f0e8;--panel:#fbf9f4;--panel2:#ece6d9;--line:#d9d2c3;--ink:#141210;--txt:#1e1b18;--mut:#6b655b;--acc:#e2552d;--acc2:#bf4119;--soft:#f9e3d9;--err:#a82a1f;--disp:"Bricolage Grotesque","Arial Black",sans-serif;--sans:"Instrument Sans",system-ui,sans-serif;--ease:cubic-bezier(.33,0,0,1)}
@@ -137,16 +137,86 @@ footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;border
 footer b{color:var(--ink);font-family:var(--disp)}
 @media(max-width:860px){.heroTop{grid-template-columns:1fr;gap:40px;padding-top:32px;padding-bottom:40px}.how{grid-template-columns:1fr}.how div,.how div+div{padding:18px 0;border-left:0;border-bottom:1px solid var(--line)}.plate{box-shadow:6px 6px 0 var(--acc)}}
 @media(max-width:560px){section{padding:18px}h1{font-size:1.2rem}h2{font-size:1.35rem}.facts{gap:20px}}
+</style>
+<style id="vendora">
+:root{--acc:#f0501e;--acc2:#c93d10;--soft:#fdeae2;--flash:#b8173a;--sh:0 1px 2px rgba(20,18,16,.06),0 8px 24px rgba(20,18,16,.07)}
+body{background-image:none;background-color:#f6f3ee}
+.topbar{background:linear-gradient(90deg,#141210,#34190e);height:38px}
+.tick .tag{color:#ff9a6e;font-weight:800}
+body>header{position:sticky;top:0;z-index:50;background:rgba(246,243,238,.93);backdrop-filter:blur(10px);max-width:none!important;padding:12px max(16px,calc((100vw - 1180px)/2 + 24px))!important;border-bottom:1px solid var(--line)}
+.mark{background:linear-gradient(135deg,#f0501e,#ff8a3d);color:#fff;border-radius:14px;font-size:1.25rem}
+.brand h1{font-size:1.5rem;text-transform:none;letter-spacing:-.04em}
+.brand small{text-transform:none;letter-spacing:0;font-size:.7rem;font-weight:500;font-style:italic;color:var(--mut)}
+button,label.btn{border-radius:999px;text-transform:none;letter-spacing:0;font-size:.82rem;font-weight:700;padding:10px 18px}
+.dark,#order,#ckOk,#pay,#login,#register,#go,#add,#planStd,#planPre,#shSave,#chSend,#verify{background:var(--acc);border-color:var(--acc)}
+.dark:hover,#order:hover,#ckOk:hover,#pay:hover,#login:hover,#register:hover,#go:hover,#add:hover,#planStd:hover,#planPre:hover,#shSave:hover,#chSend:hover,#verify:hover{background:var(--acc2);border-color:var(--acc2);transform:none;box-shadow:none}
+section{border:0;border-radius:22px;box-shadow:var(--sh)}
+input,select,textarea{border-radius:12px}
+dialog{border:0;border-radius:24px;box-shadow:0 30px 80px rgba(20,18,16,.35)}
+.plate{border-radius:22px;box-shadow:var(--sh);border:0}.plate .cmp{border-radius:14px}
+#searchBox{background:none;box-shadow:none;padding:0;margin-top:14px}
+#searchBox>h2{position:absolute;left:-9999px}
+.sb{display:flex;background:#fff;border-radius:999px;box-shadow:var(--sh);padding:5px;border:1.5px solid var(--line)}
+.sb input{flex:1;min-width:0;border:0;margin:0;background:none;padding:10px 18px}
+.sb input:focus{box-shadow:none}.sb button{margin:0}
+#rayonBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+#rayonBar button{padding:6px 14px;font-size:.72rem;border-color:var(--line);margin:0}
+#rayonTabs{border:0;gap:12px;padding:14px 24px 6px}
+#rayonTabs button{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:70px;padding:0;font-size:.72rem;font-weight:600;color:var(--ink);border:0;border-radius:0}
+#rayonTabs .cic{width:56px;height:56px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:1.5rem;box-shadow:var(--sh);border:2px solid transparent;transition:transform .2s}
+#rayonTabs button:hover .cic{transform:scale(1.07)}
+#rayonTabs button.on .cic{border-color:var(--acc);background:var(--soft)}#rayonTabs button.on{color:var(--acc2)}
+#promo{margin:16px 0;position:relative}
+.pro{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;position:relative}.pro::-webkit-scrollbar{display:none}
+.sl{flex:0 0 100%;scroll-snap-align:start;border-radius:22px;padding:26px 28px;min-height:190px;display:flex;justify-content:space-between;align-items:center;gap:12px;color:#fff;overflow:hidden}
+.s1{background:linear-gradient(120deg,#f0501e,#ff9a3d)}.s2{background:linear-gradient(120deg,#1e1450,#5b3bd6)}.s3{background:linear-gradient(120deg,#0e3b2e,#1f9d6b)}
+.sl .t{font:800 clamp(1.3rem,3.6vw,2.2rem) var(--disp);line-height:1.05;letter-spacing:-.03em;margin:0 0 8px;max-width:520px}
+.sl .d{margin:0 0 14px;opacity:.92;max-width:420px}
+.sl button{background:#fff;color:var(--ink);border-color:#fff;margin:0}.sl button:hover{background:var(--ink);color:#fff}
+.art{font-size:5.5rem;line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.25))}
+.dots{display:flex;justify-content:center;gap:7px;margin-top:10px}.dots i{width:8px;height:8px;border-radius:99px;background:#cfc8b8;cursor:pointer;transition:all .25s}.dots i.on{width:24px;background:var(--acc)}
+#flash{background:var(--flash);border-radius:22px;padding:18px 16px 6px;margin:18px 0;color:#fff}
+.fh{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.fh b{font:800 1.45rem var(--disp);letter-spacing:-.03em}
+.cd{background:#fff;color:var(--flash);border-radius:999px;padding:4px 12px;font-weight:800;font-size:.78rem}
+.fl{display:flex;gap:12px;overflow-x:auto;padding-bottom:14px;scrollbar-width:none}.fl .pc{flex:0 0 176px}
+h3.sec{border:0;padding:0;margin:22px 0 4px;font:800 1.35rem var(--disp);letter-spacing:-.03em;text-transform:none;color:var(--ink)}
+#results{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.pc{background:#fff;color:var(--txt);border-radius:18px;overflow:hidden;box-shadow:var(--sh);display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s}
+.pc:hover{transform:translateY(-3px);box-shadow:0 14px 32px rgba(20,18,16,.14)}
+.pcImg{position:relative;background:var(--panel2)}.pcImg .ph{margin:0;border-radius:0;aspect-ratio:1/1;display:block}
+.ph.none{display:grid;place-items:center;font-size:2.6rem}
+.off{position:absolute;left:10px;top:10px;background:#ffe7ec;color:var(--flash);font-weight:800;font-size:.74rem;padding:3px 9px;border-radius:8px}
+.prem{position:absolute;right:10px;top:10px;background:#141210;color:#ffd27a;font-weight:700;font-size:.64rem;padding:3px 8px;border-radius:8px}
+.plus{position:absolute;right:10px;bottom:10px;width:40px;height:40px;border-radius:50%;margin:0;padding:0;display:grid;place-items:center;background:#26262b;color:#fff;border:0;font-size:1.5rem;line-height:1;z-index:2}
+.plus:hover{background:var(--acc);color:#fff}
+.gal .cnt{bottom:10px;right:auto;left:10px}
+.pcBody{padding:12px;display:flex;flex-direction:column;gap:3px;flex:1}
+.pcBody h4{margin:0;font-size:.92rem;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+.pr{margin-top:4px}.pr b{font-size:1.12rem;font-weight:800}.pr s{color:var(--mut);font-size:.8rem;margin-left:8px}
+.pr.sale b{color:var(--flash)}
+.rt{font-size:.78rem;color:var(--mut)}.low{color:var(--flash);font-weight:700;font-size:.74rem}
+.acts{margin-top:auto;display:flex;flex-wrap:wrap;gap:6px;padding-top:10px}
+.acts button{padding:6px 11px;font-size:.68rem;border-color:var(--line);color:var(--mut);margin:0}.acts button:hover{background:var(--soft);color:var(--acc2);border-color:var(--acc)}
+.cl{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.cl>span:first-child{flex:1;font-weight:600}.cl button{margin:0;padding:6px 12px;font-size:.7rem}
+.tot{text-align:right;font-size:1.15rem}
+#tabbar{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;background:#fff;border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -6px 20px rgba(20,18,16,.06)}
+#tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;margin:0;padding:6px 2px;font-size:.66rem;font-weight:600;color:var(--mut);position:relative}
+#tabbar button:hover{background:none;color:var(--acc)}#tabbar button:first-child{color:var(--acc)}
+#tabbar svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#tbN{position:absolute;top:0;left:55%;font-style:normal;background:var(--acc);color:#fff;border-radius:99px;font-size:.62rem;padding:1px 6px;min-width:18px;text-align:center}
+@media(min-width:861px){#tabbar{display:none!important}#results{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}.fl .pc{flex-basis:210px}}
+@media(max-width:860px){body.buy{padding-bottom:78px}}
+@media(max-width:560px){body>*:not(.topbar):not(#toast):not(dialog):not(svg){padding-left:14px;padding-right:14px}#rayonTabs{padding-left:14px}.art{font-size:3.4rem}.sl{padding:20px}.brand small{font-size:.62rem}}
 </style></head><body>
 <div id="toast" hidden role="status"></div>
-<div class="topbar" aria-hidden="true"><div class="tick"><span class="tag">Édition 1.0 • 2026</span><span>Le Code Créatif • Framework premium</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Édition 1.0 • 2026</span><span>Le Code Créatif • Framework premium</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span></div></div>
-<header><a class="brand" href="/"><span class="mark">CC</span><span><h1>Marketplace</h1><small>LES GÉNIES CRÉATIFS • 2026</small></span></a>
+<div class="topbar" aria-hidden="true"><div class="tick"><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span></div></div>
+<header><a class="brand" href="/"><span class="mark">V</span><span><h1>Vendora</h1><small>« Ta boutique, ton marché, ton rythme. »</small></span></a>
 <div class="hr"><span id="who"></span> <button id="cartBtn" class="ghost" hidden>Panier <i id="cartN">0</i></button> <button id="bell" class="ghost" hidden>Notifications</button> <button id="hLogin" class="dark">Connexion →</button> <button id="logout" class="ghost" hidden>Déconnexion</button></div></header>
 <nav id="rayonTabs" aria-label="Rayons" hidden></nav>
 
 <div id="hero">
 <div class="heroTop">
-<div><p class="eyebrow">Marketplace • Côte d'Ivoire</p>
+<div><p class="eyebrow">Vendora • Côte d'Ivoire</p>
 <h2 class="big">Vos produits, enfin <em>bien montrés.</em></h2>
 <p class="lead">Une place de marché pour les commerçants et créateurs d'ici. Vous publiez vos articles, le client commande, Wave sécurise l'acompte de 50 %.</p>
 <div class="cta"><button id="heroGo" class="dark">Ouvrir ma boutique →</button><button id="heroLogin" class="ghost">J'ai déjà un compte</button></div>
@@ -171,10 +241,17 @@ footer b{color:var(--ink);font-family:var(--disp)}
 <button id="register">Créer le compte</button> <button id="toLogin">J'ai déjà un compte</button></div></section>
 
 <section id="searchBox" hidden><h2>Rechercher un article</h2>
-<p id="rayonBar" class="small">Rayon : <b id="rayonName">Tous les rayons</b> <button id="rayonBtn">Changer de rayon</button></p>
-<input id="q" placeholder="Rechercher..."> <button id="go">Chercher</button> <button id="shopsBtn">Voir les boutiques disponibles</button>
+<div class="sb"><input id="q" placeholder="Rechercher sur Vendora" enterkeyhint="search"><button id="go">Chercher</button></div>
+<p id="rayonBar" class="small">Rayon : <b id="rayonName">Tous les rayons</b> <button id="rayonBtn">Changer de rayon</button> <button id="shopsBtn">Voir les boutiques</button></p>
+<div id="promo"><div class="pro">
+<div class="sl s1"><div><p class="t">Ta boutique, ton marché, ton rythme.</p><p class="d">Des articles de boutiques d'ici, livrés chez toi.</p><button id="ctaA">Découvrir</button></div><span class="art">🛍️</span></div>
+<div class="sl s2"><div><p class="t">Paie seulement 50 % maintenant</p><p class="d">Le reste à la livraison. Acompte sécurisé par Wave.</p></div><span class="art">💳</span></div>
+<div class="sl s3"><div><p class="t">Des boutiques notées de 1 à 5 ★</p><p class="d">Choisis les vendeurs en qui tu as confiance.</p><button id="ctaB">Voir les boutiques</button></div><span class="art">⭐</span></div></div>
+<div class="dots"><i class="on"></i><i></i><i></i></div></div>
 <div id="shopBanner" class="small" hidden></div>
 <div id="shops" class="grid" hidden></div>
+<div id="flash" hidden><div class="fh"><b>Promos du moment</b><span class="cd">Prix réduits</span></div><div id="flashList" class="fl"></div></div>
+<h3 class="sec">Pour vous</h3>
 <div id="results" class="grid"></div></section>
 
 <section id="cartBox" hidden><h2>Panier</h2><div id="cart"></div><button id="order">Commander</button></section>
@@ -236,5 +313,7 @@ footer b{color:var(--ink);font-family:var(--disp)}
 
 <dialog id="chat"><h2 id="chTitle">Messages</h2><div id="chMsgs" class="msgs"></div>
 <input id="chText" maxlength="1000" placeholder="Votre message..."><p><button id="chSend">Envoyer</button> <button id="chClose">Fermer</button></p></dialog>
-<footer><span><b>Marketplace</b> • Les Génies Créatifs</span><span>Abidjan, Côte d'Ivoire • Paiements Wave</span></footer>
+<nav id="tabbar" hidden aria-label="Navigation">
+<button id="tbHome"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>Accueil</span></button><button id="tbRay"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Rayons</span></button><button id="tbCart"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a1 1 0 0 0 1 .8h9.6a1 1 0 0 0 1-.8L21 7H6"/></svg><span>Panier</span><em id="tbN" hidden>0</em></button><button id="tbMsg"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg><span>Messages</span></button><button id="tbAcc"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Commandes</span></button></nav>
+<footer><span><b>Vendora</b> • Ta boutique, ton marché, ton rythme.</span><span>Abidjan, Côte d'Ivoire • Paiements Wave</span></footer>
 <script src="/app.js"></script></body></html>

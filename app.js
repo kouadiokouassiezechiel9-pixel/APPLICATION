@@ -27,9 +27,11 @@ const ss = { get: k => { try { return sessionStorage.getItem(k) || ''; } catch {
 let CATS = [], rayon = ss.get('rayon');
 const catLabel = id => (CATS.find(c => c.id === id) || {}).label || '';
 async function loadCats() { if (!CATS.length) CATS = await api('categories'); }
+const EMO = [['mode|vêt|habit|chauss|sneak|sac','👟'],['montre|bijou|accessoire','⌚'],['beaut|coiff|cheveu|mèche|perru|cosm','💇'],['tél|phone|électro|info|ordi|high','📱'],['maison|meuble|déco|cuisine|jardin','🏠'],['aliment|épic|boisson|restau|food','🍲'],['auto|voiture|moto|pièce','🚗'],['sport|fitness','⚽'],['enfant|bébé|jouet','🧸'],['santé|pharma|bien-être','💊'],['livre|papet|école|éduc','📚'],['art|artisan|créat','🎨']];
+const emo = l => { l = (l || '').toLowerCase(); const m = EMO.find(([k]) => new RegExp(k).test(l)); return m ? m[1] : '🛍️'; };
 function drawTabs() {
   const t = $('#rayonTabs'); if (!t) return;
-  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, c.label)));
+  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, el('span', { className: 'cic' }, c.id ? emo(c.label) : '✨'), el('span', {}, c.label))));
 }
 function updateRayonBar() { $('#rayonName').textContent = rayon ? catLabel(rayon) : 'Tous les rayons'; drawTabs(); }
 async function chooseRayon(id) {
@@ -60,7 +62,7 @@ async function refresh() {
   $('#modeBar').hidden = !isM;
   $('#modeMerchant').className = mode === 'merchant' ? 'on' : ''; $('#modeClient').className = mode === 'client' ? 'on' : '';
   $('#searchBox').hidden = !buying; $('#cartBox').hidden = !buying;
-  $('#rayonTabs').hidden = !buying; $('#cartBtn').hidden = !buying; $('#hero').hidden = !!me; $('#hLogin').hidden = !!me;   // recherche et panier : clients, et commerçants en mode achat
+  document.body.classList.toggle('buy', buying); $('#tabbar').hidden = !buying; $('#rayonTabs').hidden = !buying; $('#cartBtn').hidden = !buying; $('#hero').hidden = !!me; $('#hLogin').hidden = !!me;   // recherche et panier : clients, et commerçants en mode achat
   if (buying) {
     await loadCats().catch(() => {}); updateRayonBar(); await search();
     if (!ss.get('rayonVu')) openRayons().catch(() => {});   // message d'accueil : choisir un rayon
@@ -139,7 +141,7 @@ function showShopInfo(s) {
     el('p', { className: 'small' }, [s.location, yearsText(s)].filter(Boolean).join(' · ')),
     s.description ? el('p', { className: 'desc' }, s.description) : el('p', { className: 'small' }, 'Cette boutique n\'a pas encore rédigé sa présentation.'),
     el('p', {}, el('button', { onclick: run(async () => { d.close(); await viewShopArticles(s); }) }, 'Voir ses articles'), ' ',
-      s.whatsapp ? el('button', { onclick: () => openWa(s.whatsapp, 'Bonjour ' + s.shop_name + ', je vous contacte depuis Marketplace.') }, 'WhatsApp') : '', ' ',
+      s.whatsapp ? el('button', { onclick: () => openWa(s.whatsapp, 'Bonjour ' + s.shop_name + ', je vous contacte depuis Vendora.') }, 'WhatsApp') : '', ' ',
       el('button', { id: 'shopInfoClose', onclick: () => d.close() }, 'Fermer')));
   d.showModal();
 }
@@ -172,21 +174,38 @@ function drawStars(m) {
   else if (m.stars >= 5) kids.push(el('p', { className: 'small' }, 'Boutique 5 étoiles ✔'));
   $('#starsBox').replaceChildren(...kids);
 }
+const money = n => Number(n).toLocaleString('fr-FR') + ' F';
+const addToCart = a => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.promo_price || a.price, qty: 1 }); drawCart(); say(a.name + ' ajouté au panier.'); };
+function productCard(a) {
+  const own = me && a.merchant_id === me.id, pct = a.promo_price ? Math.round((1 - a.promo_price / a.price) * 100) : 0;
+  return el('article', { className: 'pc' },
+    el('div', { className: 'pcImg' }, gallery(a), pct ? el('span', { className: 'off' }, '-' + pct + '%') : '', a.premium ? el('span', { className: 'prem' }, '★ Premium') : '',
+      own ? '' : el('button', { className: 'plus', title: 'Ajouter au panier', onclick: () => addToCart(a) }, '+')),
+    el('div', { className: 'pcBody' },
+      el('h4', {}, a.name),
+      a.promo_price ? el('div', { className: 'pr sale' }, el('b', {}, money(a.promo_price)), el('s', {}, money(a.price))) : el('div', { className: 'pr' }, el('b', {}, money(a.price))),
+      el('div', { className: 'rt' }, el('span', { className: 'stars' }, stars(a.stars)), a.rating ? ' ' + a.rating + '/5' : ''),
+      el('div', { className: 'rt' }, a.shop_name + (a.category ? ' · ' + catLabel(a.category) : '')),
+      a.details ? el('div', { className: 'rt' }, a.details) : '',
+      a.stock <= 5 ? el('div', { className: 'low' }, a.stock > 0 ? 'Plus que ' + a.stock + ' en stock' : 'Épuisé') : '',
+      el('div', { className: 'acts' }, ...(own ? [el('span', { className: 'rt' }, 'C\'est votre article')] : [
+        el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Question'),
+        el('button', { onclick: run(async () => showShopInfo(await api('shops/' + a.merchant_id))) }, 'La boutique'),
+        a.whatsapp ? el('button', { onclick: () => openWa(a.whatsapp, 'Bonjour, je suis intéressé(e) par « ' + a.name + ' » sur Vendora.') }, 'WhatsApp') : '']))));
+}
 async function search() {
   const list = await api('articles?q=' + encodeURIComponent($('#q').value) + (shopFilter ? '&shop=' + shopFilter : '') + (rayon ? '&category=' + rayon : ''));
-  $('#results').replaceChildren(...list.map(a => el('div', { className: 'card' },
-    gallery(a),
-    el('b', {}, a.name), el('p', { className: 'small' }, el('span', { className: 'stars' }, stars(a.stars)), a.rating ? ' ' + a.rating + '/5' : ''), a.category ? el('p', { className: 'small' }, catLabel(a.category)) : '', el('p', {}, a.description || ''),
-    a.premium ? el('p', { className: 'small' }, '★ Premium') : '', el('p', { className: 'small' }, a.details || ''),
-    priceLine(a),
-    ...(me && a.merchant_id === me.id ? [el('p', { className: 'small' }, 'C\'est votre article')] : [
-    el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Poser une question'), ' ', el('button', { onclick: run(async () => showShopInfo(await api('shops/' + a.merchant_id))) }, 'La boutique'), ' ', a.whatsapp ? el('button', { onclick: () => openWa(a.whatsapp, 'Bonjour, je suis intéressé(e) par « ' + a.name + ' » sur Marketplace.') }, 'WhatsApp') : '', ' ',
-    el('button', { onclick: () => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.promo_price || a.price, qty: 1 }); drawCart(); } }, 'Ajouter au panier')]))));
+  const promos = list.filter(a => a.promo_price);
+  $('#flash').hidden = !(promos.length && !$('#q').value && !shopFilter);
+  $('#flashList').replaceChildren(...promos.map(productCard));
+  $('#results').replaceChildren(...(list.length ? list.map(productCard) : [el('p', { className: 'small' }, 'Aucun article trouvé.')]));
 }
 function drawCart() {
-  $('#cartN').textContent = cart.reduce((n, c) => n + c.qty, 0);
-  $('#cart').replaceChildren(...cart.map(c => el('div', {}, c.name + ' × ' + c.qty + ' ',
-    el('button', { onclick: () => { cart = cart.filter(x => x !== c); drawCart(); } }, 'Retirer'))));
+  const n = cart.reduce((s, c) => s + c.qty, 0), tot = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  $('#cartN').textContent = n; $('#tbN').textContent = n; $('#tbN').hidden = !n;
+  $('#cart').replaceChildren(...(cart.length ? cart.map(c => el('div', { className: 'cl' }, el('span', {}, c.name), el('span', { className: 'small' }, '× ' + c.qty), el('b', {}, fmt(c.price * c.qty)),
+    el('button', { onclick: () => { cart = cart.filter(x => x !== c); drawCart(); } }, 'Retirer'))) : [el('p', { className: 'small' }, 'Votre panier est vide.')]),
+    ...(cart.length ? [el('p', { className: 'tot' }, 'Total : ', el('b', {}, fmt(tot)))] : []));
 }
 // ---- Photos multiples, promotions, WhatsApp, statistiques, notifications ----
 const waLink = (num, text) => {
@@ -196,7 +215,7 @@ const waLink = (num, text) => {
 };
 const openWa = (num, text) => { const u = waLink(num, text); if (u) window.open(u, '_blank', 'noopener'); };
 function gallery(a) {
-  const ids = a.photos || []; if (!ids.length) return '';
+  const ids = a.photos || []; if (!ids.length) return el('div', { className: 'ph none' }, '🛍️');
   let i = 0; const img = el('img', { className: 'ph', src: '/api/articles/photos/' + ids[0], alt: a.name, loading: 'lazy' });
   if (ids.length === 1) return img;
   const cnt = el('span', { className: 'cnt' }, '1/' + ids.length);
@@ -219,7 +238,7 @@ async function loadStats() {
       el('div', { className: 'bars' }, ...s.days.map(d => el('div', { className: 'bar', title: d.day + ' : ' + fmt(d.revenue) }, el('i', { style: 'height:' + Math.max(6, Math.round(d.revenue / max * 100)) + 'px' }), el('span', {}, d.day))))) : '');
 }
 let notifTimer = null;
-function setUnread(n) { const b = $('#bell'); b.textContent = 'Notifications' + (n ? ' (' + n + ')' : ''); b.className = n ? 'on' : ''; document.title = (n ? '(' + n + ') ' : '') + 'Marketplace'; }
+function setUnread(n) { const b = $('#bell'); b.textContent = 'Notifications' + (n ? ' (' + n + ')' : ''); b.className = n ? 'on' : ''; document.title = (n ? '(' + n + ') ' : '') + 'Vendora'; }
 async function pollNotifs() { if (!me) return; try { setUnread((await api('notifications')).unread); } catch {} }
 async function openNotifs() {
   const r = await api('notifications');
@@ -438,4 +457,21 @@ refresh();
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { addEventListener('resize', () => { size(); draw(0); }); return; }
   let last = 0; const loop = (now) => { if (!document.hidden && now - last > 50) { last = now; draw(now); } requestAnimationFrame(loop); };
   addEventListener('resize', size); requestAnimationFrame(loop);
+})();
+
+// ---- Vendora : bannières, barre de navigation mobile ----
+(() => {
+  const p = $('.pro'), dots = [...document.querySelectorAll('.dots i')]; let k = 0;
+  const show = i => { k = (i + dots.length) % dots.length; p.scrollTo({ left: p.children[k].offsetLeft, behavior: 'smooth' }); };
+  p.addEventListener('scroll', () => { const i = Math.round(p.scrollLeft / (p.clientWidth + 12)); k = i; dots.forEach((d, n) => d.classList.toggle('on', n === i)); });
+  dots.forEach((d, i) => { d.onclick = () => show(i); });
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(() => { if (!document.hidden && !$('#searchBox').hidden) show(k + 1); }, 5000);
+  $('#ctaA').onclick = () => $('#results').scrollIntoView({ behavior: 'smooth' });
+  $('#ctaB').onclick = () => $('#shopsBtn').click();
+  const sc = e => e && e.scrollIntoView({ behavior: 'smooth' });
+  $('#tbHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('#tbRay').onclick = run(openRayons);
+  $('#tbCart').onclick = () => sc($('#cartBox'));
+  $('#tbMsg').onclick = () => sc($('#convs'));
+  $('#tbAcc').onclick = () => sc($('#myorders'));
 })();
