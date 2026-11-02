@@ -27,11 +27,28 @@ const ss = { get: k => { try { return sessionStorage.getItem(k) || ''; } catch {
 let CATS = [], rayon = ss.get('rayon');
 const catLabel = id => (CATS.find(c => c.id === id) || {}).label || '';
 async function loadCats() { if (!CATS.length) CATS = await api('categories'); }
-const EMO = [['mode|vêt|habit|chauss|sneak|sac','👟'],['montre|bijou|accessoire','⌚'],['beaut|coiff|cheveu|mèche|perru|cosm','💇'],['tél|phone|électro|info|ordi|high','📱'],['maison|meuble|déco|cuisine|jardin','🏠'],['aliment|épic|boisson|restau|food','🍲'],['auto|voiture|moto|pièce','🚗'],['sport|fitness','⚽'],['enfant|bébé|jouet','🧸'],['santé|pharma|bien-être','💊'],['livre|papet|école|éduc','📚'],['art|artisan|créat','🎨']];
-const emo = l => { l = (l || '').toLowerCase(); const m = EMO.find(([k]) => new RegExp(k).test(l)); return m ? m[1] : '🛍️'; };
+const IC = {
+  bag:'<path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/>',
+  shirt:'<path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/>',
+  watch:'<circle cx="12" cy="12" r="5"/><path d="M12 9.5V12l1.8 1.2M9 7l.6-4h4.8L15 7M9 17l.6 4h4.8l.6-4"/>',
+  spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+  home:'<path d="M3 11l9-8 9 8v10H3z"/><path d="M10 21v-6h4v6"/>',
+  food:'<path d="M7 3v8a2 2 0 0 0 2 2v8M11 3v8a2 2 0 0 1-2 2M17 3c-2 2-2 6 0 8v10"/>',
+  car:'<path d="M4 16v-4l2-5h12l2 5v4M4 16h16M4 16v2h3v-2M17 16v2h3v-2"/><circle cx="8" cy="13" r=".8"/><circle cx="16" cy="13" r=".8"/>',
+  sport:'<circle cx="12" cy="12" r="9"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18M3 12h18"/>',
+  kids:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.500-7 10-7 10z"/>',
+  health:'<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z"/>',
+  book:'<path d="M3 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H3zM21 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z"/>',
+  art:'<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 1.5-2-.6-1.2.2-2.5 1.5-2.5H17a4 4 0 0 0 4-4C21 6.500 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="11" cy="7" r="1"/><circle cx="16" cy="8" r="1"/>',
+  all:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'
+};
+const svg = k => '<svg viewBox="0 0 24 24" aria-hidden="true">' + IC[k] + '</svg>';
+const EMO = [['mode|vêt|habit|chauss|sneak|sac','shirt'],['montre|bijou|accessoire','watch'],['beaut|coiff|cheveu|mèche|perru|cosm','spark'],['tél|phone|électro|info|ordi|high','phone'],['maison|meuble|déco|cuisine|jardin','home'],['aliment|épic|boisson|restau|food','food'],['auto|voiture|moto|pièce','car'],['sport|fitness','sport'],['enfant|bébé|jouet','kids'],['santé|pharma|bien-être','health'],['livre|papet|école|éduc','book'],['art|artisan|créat','art']];
+const emo = l => { l = (l || '').toLowerCase(); const m = EMO.find(([k]) => new RegExp(k).test(l)); return m ? m[1] : 'bag'; };
 function drawTabs() {
   const t = $('#rayonTabs'); if (!t) return;
-  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, el('span', { className: 'cic' }, c.id ? emo(c.label) : '✨'), el('span', {}, c.label))));
+  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, el('span', { className: 'cic', innerHTML: svg(c.id ? emo(c.label) : 'all') }), el('span', {}, c.label))));
 }
 function updateRayonBar() { $('#rayonName').textContent = rayon ? catLabel(rayon) : 'Tous les rayons'; drawTabs(); }
 async function chooseRayon(id) {
@@ -194,7 +211,9 @@ function productCard(a) {
         el('button', { onclick: run(async () => showShopInfo(await api('shops/' + a.merchant_id))) }, 'La boutique'),
         a.whatsapp ? el('button', { onclick: () => openWa(a.whatsapp, 'Bonjour, je suis intéressé(e) par « ' + a.name + ' » sur Vendora.') }, 'WhatsApp') : '']))));
 }
+const skeleton = n => Array.from({ length: n }, () => el('div', { className: 'sk' }, el('i'), el('i'), el('i')));
 async function search() {
+  if (!$('#results').children.length || $('#results').querySelector('.small')) $('#results').replaceChildren(...skeleton(8));
   const list = await api('articles?q=' + encodeURIComponent($('#q').value) + (shopFilter ? '&shop=' + shopFilter : '') + (rayon ? '&category=' + rayon : ''));
   const promos = list.filter(a => a.promo_price);
   $('#flash').hidden = !(promos.length && !$('#q').value && !shopFilter);
@@ -216,8 +235,8 @@ const waLink = (num, text) => {
 };
 const openWa = (num, text) => { const u = waLink(num, text); if (u) window.open(u, '_blank', 'noopener'); };
 function gallery(a) {
-  const ids = a.photos || []; if (!ids.length) return el('div', { className: 'ph none' }, '🛍️');
-  let i = 0; const img = el('img', { className: 'ph', src: '/api/articles/photos/' + ids[0], alt: a.name, loading: 'lazy' });
+  const ids = a.photos || []; if (!ids.length) return el('div', { className: 'ph none', innerHTML: svg('bag') });
+  let i = 0; const img = el('img', { className: 'ph', src: '/api/articles/photos/' + ids[0], alt: a.name, loading: 'lazy', decoding: 'async' });
   if (ids.length === 1) return img;
   const cnt = el('span', { className: 'cnt' }, '1/' + ids.length);
   const go = d => { i = (i + d + ids.length) % ids.length; img.src = '/api/articles/photos/' + ids[i]; cnt.textContent = (i + 1) + '/' + ids.length; };
@@ -250,15 +269,16 @@ async function openNotifs() {
   if (r.unread) { await api('notifications/read', 'POST', {}); setUnread(0); }
 }
 // ---- Photos : réduction dans le navigateur (max 800 px, JPEG) puis envoi ----
-async function compress(file, max = 800) {
+async function compress(file, max = 1000) {
   if (!file.type.startsWith('image/')) throw new Error('Choisissez une image (JPG, PNG...)');
   let bmp;
   try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
   catch { bmp = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error('Image illisible')); i.src = URL.createObjectURL(file); }); }
   const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight, k = Math.min(1, max / Math.max(w, h));
   const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
-  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
-  const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.72));
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  let blob, q = 0.88;   // on garde la meilleure qualité possible sous la limite d'envoi (~380 ko)
+  do { blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', q)); q -= 0.08; } while (blob && blob.size > 380000 && q > 0.4);
   if (!blob) throw new Error('Impossible de préparer la photo');
   return blob;
 }
@@ -394,27 +414,12 @@ $('#add').onclick = run(async () => {
 });
 refresh();
 
-// ---- Accueil : démo avant/après, boutons d'accès ----
+// ---- Accueil : boutons d'accès ----
 (() => {
   const go = () => { $('#auth').scrollIntoView({ behavior: 'smooth' }); };
   $('#hLogin').onclick = go; $('#heroLogin').onclick = go;
   $('#heroGo').onclick = () => { authMode(true); go(); };
   $('#cartBtn').onclick = () => $('#cartBox').scrollIntoView({ behavior: 'smooth' });
-  const NAMES = ['Montre', 'Sac', 'Sneaker', 'Mèches'], cmp = $('#cmp');
-  $('#cmpR').oninput = e => cmp.style.setProperty('--p', e.target.value + '%');
-  $('#demoTabs').onclick = e => { const b = e.target.closest('button'); if (!b) return;
-    [...$('#demoTabs').children].forEach(x => x.classList.toggle('on', x === b));
-    const k = +b.dataset.k; $('#imgA').src = '/demo-' + k + 'b.jpg'; $('#imgB').src = '/demo-' + k + 'a.jpg';
-    $('#imgA').alt = NAMES[k] + ' : image publicitaire'; $('#imgB').alt = NAMES[k] + ' : photo d\'origine'; $('#figName').textContent = NAMES[k]; };
-  // Seules les paires complètes (avant + après) sont affichées : on peut n'envoyer que 2, 3 ou 4 paires
-  Promise.all([0, 1, 2, 3].map(k => Promise.all(['a', 'b'].map(s => new Promise(r => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = '/demo-' + k + s + '.jpg'; }))).then(r => r.every(Boolean))))
-    .then(okList => {
-      const btns = [...$('#demoTabs').children], first = okList.indexOf(true), n = okList.filter(Boolean).length;
-      btns.forEach((b, k) => { b.hidden = !okList[k]; });
-      if (first < 0) { $('.plate').parentElement.hidden = true; $('.heroTop').style.gridTemplateColumns = '1fr'; return; }
-      if (n < 2) $('#demoTabs').hidden = true;
-      if (!okList[0]) btns[first].click();
-    });
 })();
 // ---- Design : titres mot par mot, fond de courbes de niveau ----
 (() => {
