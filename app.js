@@ -59,13 +59,14 @@ async function refresh() {
   $('#who').textContent = me ? me.name + ' (' + (ROLE_FR[me.role] || me.role) + ')' : '';
   const isM = !!me && me.role === 'merchant';
   const buying = !!me && (me.role === 'client' || (isM && mode === 'client'));
+  const browse = !me || buying;   // visiteurs non connectés : ils voient déjà les articles
   $('#modeBar').hidden = !isM;
   $('#modeMerchant').className = mode === 'merchant' ? 'on' : ''; $('#modeClient').className = mode === 'client' ? 'on' : '';
-  $('#searchBox').hidden = !buying; $('#cartBox').hidden = !buying;
-  document.body.classList.toggle('buy', buying); $('#tabbar').hidden = !buying; $('#rayonTabs').hidden = !buying; $('#cartBtn').hidden = !buying; $('#hero').hidden = !!me; $('#hLogin').hidden = !!me;   // recherche et panier : clients, et commerçants en mode achat
-  if (buying) {
+  $('#searchBox').hidden = !browse; $('#cartBox').hidden = !browse;
+  document.body.classList.toggle('buy', browse); $('#tabbar').hidden = !browse; $('#rayonTabs').hidden = !browse; $('#cartBtn').hidden = !browse; $('#hero').hidden = !!me; $('#hLogin').hidden = !!me;   // recherche et panier : clients, et commerçants en mode achat
+  if (browse) {
     await loadCats().catch(() => {}); updateRayonBar(); await search();
-    if (!ss.get('rayonVu')) openRayons().catch(() => {});   // message d'accueil : choisir un rayon
+    if (buying && !ss.get('rayonVu')) openRayons().catch(() => {});   // message d'accueil : choisir un rayon
   }
   $('#merchant').hidden = !(isM && mode === 'merchant');
   if (!$('#merchant').hidden) await loadMerchant();
@@ -189,7 +190,7 @@ function productCard(a) {
       a.details ? el('div', { className: 'rt' }, a.details) : '',
       a.stock <= 5 ? el('div', { className: 'low' }, a.stock > 0 ? 'Plus que ' + a.stock + ' en stock' : 'Épuisé') : '',
       el('div', { className: 'acts' }, ...(own ? [el('span', { className: 'rt' }, 'C\'est votre article')] : [
-        el('button', { onclick: run(async () => { if (!me || me.role === 'admin') throw new Error('Connectez-vous pour poser une question'); openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Question'),
+        el('button', { onclick: run(async () => { if (!me || me.role === 'admin') { if (!me) { authMode(false); $('#auth').scrollIntoView({ behavior: 'smooth' }); } throw new Error('Connectez-vous pour poser une question'); } openChat(a.merchant_id, a.shop_name, a.id, 'buyer'); }) }, 'Question'),
         el('button', { onclick: run(async () => showShopInfo(await api('shops/' + a.merchant_id))) }, 'La boutique'),
         a.whatsapp ? el('button', { onclick: () => openWa(a.whatsapp, 'Bonjour, je suis intéressé(e) par « ' + a.name + ' » sur Vendora.') }, 'WhatsApp') : '']))));
 }
@@ -361,9 +362,9 @@ $('#register').onclick = run(async () => {
     welcome(estCommercant ? 'Votre boutique sera visible après validation par l\'administrateur et paiement du forfait mensuel.' : '');
   } catch { say('Compte créé ! Connectez-vous avec le même e-mail et mot de passe.'); }
 });
-$('#logout').onclick = run(async () => { await api('logout', 'POST', {}); await refresh(); });
+$('#logout').onclick = run(async () => { await api('logout', 'POST', {}); cart = []; drawCart(); await refresh(); window.scrollTo({ top: 0 }); });
 $('#order').onclick = run(async () => {
-  if (!me || me.role === 'admin') throw new Error('Connectez-vous pour commander');
+  if (!me || me.role === 'admin') { if (!me) { authMode(false); $('#auth').scrollIntoView({ behavior: 'smooth' }); } throw new Error('Connectez-vous ou créez un compte pour commander (votre panier est conservé).'); }
   if (!cart.length) throw new Error('Panier vide');
   $('#ckName').value = me.name; const tot = cart.reduce((n, c) => n + c.price * c.qty, 0), dep = Math.ceil(tot / 2);
   $('#ckTotal').textContent = 'Total : ' + fmt(tot) + ' · À payer maintenant sur Wave (50 %) : ' + fmt(dep) + ' · Reste à payer à la livraison : ' + fmt(tot - dep);
@@ -472,6 +473,7 @@ refresh();
   $('#tbHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   $('#tbRay').onclick = run(openRayons);
   $('#tbCart').onclick = () => sc($('#cartBox'));
-  $('#tbMsg').onclick = () => sc($('#convs'));
-  $('#tbAcc').onclick = () => sc($('#myorders'));
+  const needLogin = () => { authMode(false); say('Connectez-vous ou créez un compte pour accéder à cet espace.', false); sc($('#auth')); };
+  $('#tbMsg').onclick = () => me ? sc($('#convs')) : needLogin();
+  $('#tbAcc').onclick = () => me ? sc($('#myorders')) : needLogin();
 })();

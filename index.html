@@ -214,32 +214,7 @@ h3.sec{border:0;padding:0;margin:22px 0 4px;font:800 1.35rem var(--disp);letter-
 <div class="hr"><span id="who"></span> <button id="cartBtn" class="ghost" hidden>Panier <i id="cartN">0</i></button> <button id="bell" class="ghost" hidden>Notifications</button> <button id="hLogin" class="dark">Connexion →</button> <button id="logout" class="ghost" hidden>Déconnexion</button></div></header>
 <nav id="rayonTabs" aria-label="Rayons" hidden></nav>
 
-<div id="hero">
-<div class="heroTop">
-<div><p class="eyebrow">Vendora • Côte d'Ivoire</p>
-<h2 class="big">Vos produits, enfin <em>bien montrés.</em></h2>
-<p class="lead">Une place de marché pour les commerçants et créateurs d'ici. Vous publiez vos articles, le client commande, Wave sécurise l'acompte de 50 %.</p>
-<div class="cta"><button id="heroGo" class="dark">Ouvrir ma boutique →</button><button id="heroLogin" class="ghost">J'ai déjà un compte</button></div>
-<ul class="facts"><li><b>50</b><span>secteurs d'activité</span></li><li><b>50 %</b><span>d'acompte via Wave</span></li><li><b>★ 1 à 5</b><span>boutiques notées</span></li></ul></div>
-<div><div class="plate"><div id="demoTabs" class="seg"><button class="on" data-k="0">Montre</button><button data-k="1">Sac</button><button data-k="2">Sneaker</button><button data-k="3">Mèches</button></div>
-<div id="cmp" class="cmp" style="--p:50%"><div class="lay after"><img id="imgA" src="/demo-0b.jpg" alt="Montre : image publicitaire" width="560" height="560"><em>Après</em></div><div class="lay before"><img id="imgB" src="/demo-0a.jpg" alt="Montre : photo d'origine" width="560" height="560"><em>Avant</em></div><div class="hdl"><span>◂▸</span></div><input id="cmpR" type="range" min="0" max="100" value="50" aria-label="Comparer avant et après"></div>
-<p class="cap"><span><b id="figName">Montre</b> — avant / après</span><span>Glissez pour comparer</span></p></div></div>
-</div>
-<div class="how"><div><i>01</i><b>Créez votre boutique</b><p>Inscrivez-vous, présentez votre boutique, choisissez votre rayon et publiez vos articles avec photos.</p></div><div><i>02</i><b>Le client commande</b><p>Il paie 50 % d'acompte avec Wave. Vous recevez la commande et préparez la livraison.</p></div><div><i>03</i><b>Livrez, encaissez le solde</b><p>Le reste est réglé à la livraison. Le client note votre boutique et votre réputation grandit.</p></div></div>
-</div>
-
 <div id="modeBar" hidden><button id="modeMerchant">Mon espace commerçant</button> <button id="modeClient">Acheter sur la marketplace</button></div>
-<section id="auth"><h2>Connexion / Inscription</h2>
-<div id="loginBox"><h3>Connexion</h3>
-<input id="email" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br>
-<input id="password" type="password" placeholder="Mot de passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br>
-<button id="login">Se connecter</button> <button id="toRegister">Créer un compte</button></div>
-<div id="registerBox" hidden><h3>Créer un compte</h3>
-<select id="role"><option value="client">Client</option><option value="merchant">Commerçant</option></select><br>
-<input id="name" placeholder="Nom"><br><input id="remail" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="rpassword" type="password" placeholder="Mot de passe (8 caractères min.)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="phone" placeholder="Téléphone"><br>
-<div id="merchantFields" hidden><input id="shop" placeholder="Nom de la boutique (commerçant)"><br><input id="loc" placeholder="Localisation (commerçant)"><br></div>
-<button id="register">Créer le compte</button> <button id="toLogin">J'ai déjà un compte</button></div></section>
-
 <section id="searchBox" hidden><h2>Rechercher un article</h2>
 <div class="sb"><input id="q" placeholder="Rechercher sur Vendora" enterkeyhint="search"><button id="go">Chercher</button></div>
 <p id="rayonBar" class="small">Rayon : <b id="rayonName">Tous les rayons</b> <button id="rayonBtn">Changer de rayon</button> <button id="shopsBtn">Voir les boutiques</button></p>
@@ -255,6 +230,31 @@ h3.sec{border:0;padding:0;margin:22px 0 4px;font:800 1.35rem var(--disp);letter-
 <div id="results" class="grid"></div></section>
 
 <section id="cartBox" hidden><h2>Panier</h2><div id="cart"></div><button id="order">Commander</button></section>
+
+<div id="hero">
+<div class="heroTop">
+<div><p class="eyebrow">Vendora • Côte d'Ivoire</p>
+<h2 class="big">Vos produits, enfin <em>bien montrés.</em></h2>
+<p class="lead">Une place de marché pour les commerçants et créateurs d'ici. Vous publiez vos articles, le client commande, Wave sécurise l'acompte de 50 %.</p>
+<div class="cta"><button id="heroGo" class="dark">Ouvrir ma boutique →</button><button id="heroLogin" class="ghost">J'ai déjà un compte</button></div>
+<ul class="facts"><li><b>50</b><span>secteurs d'activité</span></li><li><b>50 %</b><span>d'acompte via Wave</span></li><li><b>★ 1 à 5</b><span>boutiques notées</span></li></ul></div>
+<div><div class="plate"><div id="demoTabs" class="seg"><button class="on" data-k="0">Montre</button><button data-k="1">Sac</button><button data-k="2">Sneaker</button><button data-k="3">Mèches</button></div>
+<div id="cmp" class="cmp" style="--p:50%"><div class="lay after"><img id="imgA" src="/demo-0b.jpg" alt="Montre : image publicitaire" width="560" height="560"><em>Après</em></div><div class="lay before"><img id="imgB" src="/demo-0a.jpg" alt="Montre : photo d'origine" width="560" height="560"><em>Avant</em></div><div class="hdl"><span>◂▸</span></div><input id="cmpR" type="range" min="0" max="100" value="50" aria-label="Comparer avant et après"></div>
+<p class="cap"><span><b id="figName">Montre</b> — avant / après</span><span>Glissez pour comparer</span></p></div></div>
+</div>
+<div class="how"><div><i>01</i><b>Créez votre boutique</b><p>Inscrivez-vous, présentez votre boutique, choisissez votre rayon et publiez vos articles avec photos.</p></div><div><i>02</i><b>Le client commande</b><p>Il paie 50 % d'acompte avec Wave. Vous recevez la commande et préparez la livraison.</p></div><div><i>03</i><b>Livrez, encaissez le solde</b><p>Le reste est réglé à la livraison. Le client note votre boutique et votre réputation grandit.</p></div></div>
+</div>
+
+<section id="auth"><h2>Connexion / Inscription</h2>
+<div id="loginBox"><h3>Connexion</h3>
+<input id="email" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br>
+<input id="password" type="password" placeholder="Mot de passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br>
+<button id="login">Se connecter</button> <button id="toRegister">Créer un compte</button></div>
+<div id="registerBox" hidden><h3>Créer un compte</h3>
+<select id="role"><option value="client">Client</option><option value="merchant">Commerçant</option></select><br>
+<input id="name" placeholder="Nom"><br><input id="remail" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="rpassword" type="password" placeholder="Mot de passe (8 caractères min.)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="phone" placeholder="Téléphone"><br>
+<div id="merchantFields" hidden><input id="shop" placeholder="Nom de la boutique (commerçant)"><br><input id="loc" placeholder="Localisation (commerçant)"><br></div>
+<button id="register">Créer le compte</button> <button id="toLogin">J'ai déjà un compte</button></div></section>
 
 <section id="convs" hidden><h2>Mes messages</h2><div id="threads"></div></section>
 <section id="myorders" hidden><h2>Mes commandes</h2><div id="mo"></div></section>
