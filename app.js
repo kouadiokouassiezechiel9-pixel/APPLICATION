@@ -48,7 +48,7 @@ const EMO = [['mode|vêt|habit|chauss|sneak|sac','shirt'],['montre|bijou|accesso
 const emo = l => { l = (l || '').toLowerCase(); const m = EMO.find(([k]) => new RegExp(k).test(l)); return m ? m[1] : 'bag'; };
 function drawTabs() {
   const t = $('#rayonTabs'); if (!t) return;
-  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, el('span', { className: 'cic', innerHTML: svg(c.id ? emo(c.label) : 'all') }), el('span', {}, c.label))));
+  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, el('span', { className: 'cic', innerHTML: svg(c.id ? emo(c.label) : 'all') }), el('span', { className: 'lbl' }, c.label))));
 }
 function updateRayonBar() { $('#rayonName').textContent = rayon ? catLabel(rayon) : 'Tous les rayons'; drawTabs(); }
 async function chooseRayon(id) {

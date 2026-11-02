@@ -186,7 +186,6 @@ dialog::backdrop{background:rgba(17,20,24,.55);backdrop-filter:blur(4px)}
 .sl .d{margin:0 0 18px;opacity:.92;max-width:400px;font-size:1.02rem}
 .sl button{background:#fff;color:var(--ink);border-color:#fff;margin:0;box-shadow:0 10px 22px -10px rgba(0,0,0,.5)}.sl button:hover{background:var(--ink);color:#fff}
 .sl img.art{width:min(34%,230px);aspect-ratio:1/1;object-fit:cover;border-radius:24px;transform:rotate(4deg);box-shadow:0 26px 50px -18px rgba(0,0,0,.6);border:3px solid rgba(255,255,255,.85);flex:none}
-.sl svg.art{width:min(26%,150px);height:auto;flex:none;stroke:#fff;fill:none;stroke-width:1.2;opacity:.95}
 .dots{display:flex;justify-content:center;gap:7px;margin-top:12px}.dots i{width:8px;height:8px;border-radius:99px;background:#d3cdc0;cursor:pointer;transition:all .3s}.dots i.on{width:26px;background:var(--acc)}
 /* réassurance */
 .trust{list-style:none;margin:18px 0 4px;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -252,6 +251,34 @@ footer b{color:#fff}
 @media(max-width:860px){body.buy{padding-bottom:96px}.trust{grid-template-columns:1fr 1fr}.collage{max-width:460px}.collage .chip{left:8px}}
 @media(max-width:560px){body>*:not(.topbar):not(#toast):not(dialog):not(svg){padding-left:14px;padding-right:14px}#rayonTabs{padding-left:14px}.sl{padding:22px;min-height:190px}.sl img.art{width:34%}.brand small{display:none}.trust li{padding:11px}.trust svg{width:24px;height:24px}#results{gap:12px}.heroTop{padding-top:34px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* rayons : étiquettes bien séparées */
+#rayonTabs{gap:10px;padding:18px 24px 10px;scroll-snap-type:x proximity}
+#rayonTabs button{flex:0 0 104px;width:104px;min-width:104px;align-self:flex-start;white-space:normal;gap:9px;scroll-snap-align:start;text-align:center}
+#rayonTabs .lbl{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.2;font-size:.72rem;font-weight:650;min-height:2.4em;width:100%;overflow-wrap:anywhere}
+#rayonTabs .cic{width:62px;height:62px;border-radius:22px}
+/* bannières avec photo */
+.sl>div{position:relative;z-index:2}
+.sl .bgimg{position:absolute;right:0;top:0;height:100%;width:56%;object-fit:cover;object-position:center top;z-index:1;-webkit-mask-image:linear-gradient(to left,#000 62%,transparent);mask-image:linear-gradient(to left,#000 62%,transparent)}
+.sl.has .art{display:none}
+.sl svg.art{width:min(30%,190px);height:auto;flex:none;filter:drop-shadow(0 18px 24px rgba(0,0,0,.28));stroke:none;fill:none}
+.sl svg.art text{stroke:none}
+/* accueil visiteur : scène chaussure */
+#hero{position:relative}
+#hero::before{content:"";position:absolute;inset:-40px 0 auto 0;height:620px;background:radial-gradient(700px 360px at 80% 10%,rgba(240,80,30,.16),transparent 70%),radial-gradient(500px 300px at 5% 0,rgba(255,170,90,.18),transparent 70%);z-index:-1;pointer-events:none}
+.stage{position:relative;aspect-ratio:1/1;max-width:520px;width:100%;margin-left:auto}
+.stage .blob{position:absolute;border-radius:50%;filter:blur(2px);z-index:0}
+.stage .b1{inset:6% 4% 4% 8%;background:linear-gradient(140deg,#ff7a3d,#e0360b);border-radius:42% 58% 55% 45%/50% 45% 55% 50%;transform:rotate(-6deg)}
+.stage .b2{width:34%;aspect-ratio:1;right:-2%;top:-3%;background:#ffd27a;opacity:.9}
+.stage .shoe{position:absolute;inset:9% 7% 9% 12%;width:81%;height:82%;object-fit:cover;border-radius:34px;box-shadow:0 40px 70px -24px rgba(17,20,24,.55);transform:rotate(3deg);border:4px solid #fff;z-index:1;background:#1a1012}
+.stage .chip{position:absolute;z-index:3;background:#fff;border-radius:16px;padding:11px 15px;box-shadow:var(--sh2);font-size:.76rem;display:flex;gap:10px;align-items:center;animation:flt 5s ease-in-out infinite}
+.stage .chip b{display:block;font-size:.86rem}.stage .chip svg{width:26px;height:26px;stroke:var(--acc);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.stage .c-a{left:-2%;bottom:12%}.stage .c-b{right:-2%;top:22%;animation-delay:-2.5s}
+@keyframes flt{50%{transform:translateY(-8px)}}
+.how div{transition:transform .25s var(--ease),box-shadow .25s var(--ease)}.how div:hover{transform:translateY(-4px);box-shadow:var(--sh2)}
+.how i{background:linear-gradient(140deg,#ff7a3d,#e0360b);-webkit-background-clip:text;background-clip:text;color:transparent}
+@media(max-width:860px){.stage{margin:0 auto;max-width:420px}.stage .c-a{left:2%}.stage .c-b{right:2%}}
+@media(max-width:560px){#rayonTabs button{flex-basis:96px;width:96px;min-width:96px}.sl .bgimg{width:62%}}
 </style></head><body>
 <div id="toast" hidden role="status"></div>
 <div class="topbar" aria-hidden="true"><div class="tick"><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span></div></div>
@@ -264,9 +291,9 @@ footer b{color:#fff}
 <div class="sb"><input id="q" placeholder="Rechercher sur Vendora" enterkeyhint="search"><button id="go">Chercher</button></div>
 <p id="rayonBar" class="small">Rayon : <b id="rayonName">Tous les rayons</b> <button id="rayonBtn">Changer de rayon</button> <button id="shopsBtn">Voir les boutiques</button></p>
 <div id="promo"><div class="pro">
-<div class="sl s1"><div><p class="t">Ta boutique, ton marché, ton rythme.</p><p class="d">Des articles de boutiques d'ici, livrés chez toi.</p><button id="ctaA">Découvrir</button></div><img class="art" src="/demo-2b.jpg" alt="Sneakers" width="230" height="230" onerror="this.remove()"></div>
-<div class="sl s2"><div><p class="t">Paie seulement 50 % maintenant</p><p class="d">Le reste à la livraison. Acompte sécurisé par Wave.</p></div><svg class="art" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="11" width="38" height="26" rx="5"/><path d="M5 19h38M11 30h9"/></svg></div>
-<div class="sl s3"><div><p class="t">Des boutiques notées de 1 à 5 ★</p><p class="d">Choisis les vendeurs en qui tu as confiance.</p><button id="ctaB">Voir les boutiques</button></div><img class="art" src="/demo-0a.jpg" alt="Montre" width="230" height="230" onerror="this.remove()"></div></div>
+<div class="sl s1"><div><p class="t">Ta boutique, ton marché, ton rythme.</p><p class="d">Des articles de boutiques d'ici, livrés chez toi.</p><button id="ctaA">Découvrir</button></div><svg class="art" viewBox="0 0 200 200" aria-hidden="true"><path d="M50 70h100l10 110H40z" fill="rgba(255,255,255,.22)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M75 70a25 25 0 0 1 50 0" fill="none" stroke="#fff" stroke-width="3"/><circle cx="82" cy="108" r="4.5" fill="#fff"/><circle cx="118" cy="108" r="4.5" fill="#fff"/><path d="M84 138q16 15 32 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg><img class="bgimg" src="/banner-1.jpg" alt="" onload="this.parentElement.classList.add('has')" onerror="this.remove()"></div>
+<div class="sl s2"><div><p class="t">Paie seulement 50 % maintenant</p><p class="d">Le reste à la livraison. Acompte sécurisé par Wave.</p></div><svg class="art" viewBox="0 0 200 220" aria-hidden="true"><rect x="52" y="8" width="96" height="200" rx="18" fill="#fff"/><rect x="61" y="26" width="78" height="164" rx="9" fill="#2a2380"/><text x="100" y="92" text-anchor="middle" font-size="32" font-weight="800" fill="#fff" font-family="sans-serif">50%</text><text x="100" y="112" text-anchor="middle" font-size="9.5" fill="#cfc8ff" font-family="sans-serif">acompte Wave</text><rect x="76" y="132" width="48" height="20" rx="10" fill="#f0501e"/><text x="100" y="146" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" font-family="sans-serif">Payer</text><circle cx="148" cy="40" r="17" fill="#22c58b" stroke="#fff" stroke-width="3"/><path d="M140 40l6 6 11-12" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg><img class="bgimg" src="/banner-2.jpg" alt="" onload="this.parentElement.classList.add('has')" onerror="this.remove()"></div>
+<div class="sl s3"><div><p class="t">Des boutiques notées de 1 à 5 ★</p><p class="d">Choisis les vendeurs en qui tu as confiance.</p><button id="ctaB">Voir les boutiques</button></div><svg class="art" viewBox="0 0 200 200" aria-hidden="true"><text x="100" y="34" text-anchor="middle" font-size="24" fill="#ffd27a" letter-spacing="3" font-family="sans-serif">★★★★★</text><path d="M30 96l14-36h112l14 36z" fill="rgba(255,255,255,.25)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><rect x="40" y="96" width="120" height="76" fill="rgba(255,255,255,.12)" stroke="#fff" stroke-width="3"/><rect x="86" y="120" width="28" height="52" fill="#fff" opacity=".9"/><rect x="50" y="110" width="26" height="24" fill="rgba(255,255,255,.35)"/><rect x="124" y="110" width="26" height="24" fill="rgba(255,255,255,.35)"/></svg><img class="bgimg" src="/banner-3.jpg" alt="" onload="this.parentElement.classList.add('has')" onerror="this.remove()"></div></div>
 <div class="dots"><i class="on"></i><i></i><i></i></div></div>
 <ul class="trust">
 <li><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5L15.5 10"/></svg><div><b>Paiement sécurisé</b><span>Acompte 50 % par Wave</span></div></li>
@@ -288,9 +315,10 @@ footer b{color:#fff}
 <p class="lead">Une place de marché pour les commerçants et créateurs d'ici. Vous publiez vos articles, le client commande, Wave sécurise l'acompte de 50 %.</p>
 <div class="cta"><button id="heroGo" class="dark">Ouvrir ma boutique →</button><button id="heroLogin" class="ghost">J'ai déjà un compte</button></div>
 <ul class="facts"><li><b>50</b><span>secteurs d'activité</span></li><li><b>50 %</b><span>d'acompte via Wave</span></li><li><b>★ 1 à 5</b><span>boutiques notées</span></li></ul></div>
-<div class="collage"><img class="c1" src="/demo-2b.jpg" alt="Sneakers présentées en studio" width="560" height="560" onerror="this.style.visibility='hidden'"><img class="c2" src="/demo-0a.jpg" alt="Montre bracelet rouge" width="560" height="560" onerror="this.style.visibility='hidden'"><img class="c3" src="/demo-3b.jpg" alt="Perruque bob blond" width="560" height="560" onerror="this.style.visibility='hidden'">
-<div class="chip"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5L15.5 10"/></svg><span><b>Acompte sécurisé</b>Wave · 50 % à la commande</span></div></div>
-</div>
+<div class="stage"><span class="blob b1"></span><span class="blob b2"></span>
+<img class="shoe" src="/demo-2b.jpg" alt="Sneakers présentées en studio" width="560" height="560" onerror="this.style.visibility='hidden'">
+<div class="chip c-a"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5L15.5 10"/></svg><span><b>Acompte sécurisé</b>Wave · 50 % à la commande</span></div>
+<div class="chip c-b"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span><b>Boutiques notées</b>de 1 à 5 étoiles</span></div></div>
 </div>
 <div class="how"><div><i>01</i><b>Créez votre boutique</b><p>Inscrivez-vous, présentez votre boutique, choisissez votre rayon et publiez vos articles avec photos.</p></div><div><i>02</i><b>Le client commande</b><p>Il paie 50 % d'acompte avec Wave. Vous recevez la commande et préparez la livraison.</p></div><div><i>03</i><b>Livrez, encaissez le solde</b><p>Le reste est réglé à la livraison. Le client note votre boutique et votre réputation grandit.</p></div></div>
 </div>
