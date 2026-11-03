@@ -280,6 +280,47 @@ footer b{color:#fff}
 @media(max-width:860px){.stage{margin:0 auto;max-width:420px}.stage .c-a{left:2%}.stage .c-b{right:2%}}
 @media(max-width:560px){#rayonTabs button{flex-basis:96px;width:96px;min-width:96px}.sl .bgimg{width:62%}}
 @media(max-width:560px){.sl.has .t,.sl.has .d{text-shadow:0 2px 12px rgba(120,30,0,.45)}.sl .bgimg{width:54%}.sl.has .t{max-width:64%}.sl.has .d{max-width:58%;font-size:.92rem}}
+
+/* ===== VERSION 3D ===== */
+body{background:radial-gradient(900px 500px at 10% -5%,rgba(255,170,90,.18),transparent 70%),radial-gradient(800px 480px at 95% 10%,rgba(240,80,30,.12),transparent 70%),var(--bg)}
+.pc,.stage,.sl,.how>div,.trust li,#flash,.card{transform-style:preserve-3d}
+.pc,.sl,.how>div,.trust li,#flash,.card{transform:perspective(1000px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .35s var(--ease),box-shadow .35s var(--ease)}
+.tilting{transition:transform .08s linear!important}
+.pc:hover,.how div:hover,.card:hover{transform:perspective(1000px) translateY(-6px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
+.pc{box-shadow:0 1px 0 #fff inset,0 2px 0 rgba(17,20,24,.06),0 22px 34px -18px rgba(17,20,24,.4)}
+.pc .pcImg{transform:translateZ(24px)}
+.pc .plus,.pc .off,.pc .prem{transform:translateZ(46px)}
+section,.trust li,.how>div{box-shadow:0 1px 0 #fff inset,0 3px 0 rgba(17,20,24,.05),0 26px 40px -22px rgba(17,20,24,.38)}
+/* rayons : tuiles en relief, objet qui sort du cadre */
+#rayonTabs{perspective:900px;padding-top:30px}
+#rayonTabs .cic{position:relative;transform-style:preserve-3d;background:linear-gradient(150deg,#fff 0%,#efe9dd 100%);border:1px solid rgba(255,255,255,.9);box-shadow:inset 0 2px 0 #fff,inset 0 -7px 10px rgba(17,20,24,.07),0 5px 0 #d6cfbf,0 18px 22px -10px rgba(17,20,24,.5);transition:transform .35s var(--ease),box-shadow .35s var(--ease)}
+#rayonTabs .cic.has{overflow:visible}
+#rayonTabs .cic img{position:absolute;left:50%;bottom:6px;width:122%;height:122%;max-width:none;object-fit:contain;object-position:center bottom;transform:translateX(-50%) translateZ(42px);filter:drop-shadow(0 12px 8px rgba(17,20,24,.38));transition:transform .35s var(--ease),filter .35s var(--ease);pointer-events:none}
+#rayonTabs button:hover .cic{transform:translateY(-5px) rotateX(10deg) rotateY(-12deg);box-shadow:inset 0 2px 0 #fff,0 9px 0 #d6cfbf,0 28px 26px -12px rgba(17,20,24,.55)}
+#rayonTabs button:hover .cic img{transform:translateX(-50%) translateZ(70px) scale(1.08);filter:drop-shadow(0 20px 12px rgba(17,20,24,.45))}
+#rayonTabs button.on .cic{background:linear-gradient(150deg,#ff7a3d,#e0360b);box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 5px 0 #a82e08,0 20px 24px -10px rgba(240,80,30,.75)}
+#rayonTabs .cic.photo{overflow:hidden;padding:0;border:2px solid #fff}
+#rayonTabs .cic.photo img{position:static;width:100%;height:100%;max-width:none;object-fit:cover;transform:scale(1.02);filter:none;border-radius:inherit;transition:transform .5s var(--ease)}
+#rayonTabs button:hover .cic.photo img{transform:scale(1.18);filter:none}
+#rayonTabs button.on .cic.photo{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc),0 5px 0 #a82e08,0 20px 24px -10px rgba(240,80,30,.75)}
+/* scène d'accueil en profondeur */
+.stage{transform:perspective(1100px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateY(calc(var(--sy,0)*-16px));transition:transform .45s var(--ease)}
+.stage .b1{transform:translateZ(-50px) rotate(-6deg)}.stage .b2{transform:translateZ(-20px)}
+.stage .shoe{transform:translateZ(70px) rotate(3deg)}
+.stage .shoe.cut{border:0;background:none;box-shadow:none;object-fit:contain;filter:drop-shadow(0 38px 28px rgba(17,20,24,.45))}
+.stage .chip{animation:flt3 5s ease-in-out infinite;transform:translateZ(120px)}
+.stage .c-b{animation-delay:-2.5s}
+@keyframes flt3{0%,100%{transform:translateZ(120px) translateY(0)}50%{transform:translateZ(120px) translateY(-9px)}}
+/* bannières : image au premier plan, texte flottant */
+.pro{perspective:1200px;padding:10px 0 26px}
+.sl{box-shadow:inset 0 2px 0 rgba(255,255,255,.3),0 34px 40px -26px rgba(17,20,24,.65)}
+.sl>div{transform:translateZ(50px)}
+.sl .bgimg{transform:translateZ(20px) translateX(calc(var(--sy,0)*-18px))}
+.sl svg.art{transform:translateZ(70px) rotate(4deg)}
+/* réassurance, promos */
+.trust .tico{width:46px;height:46px;flex:none;object-fit:contain;filter:drop-shadow(0 8px 6px rgba(17,20,24,.3));transform:translateZ(30px)}
+#flash.hasbg{background:linear-gradient(120deg,rgba(168,15,54,.92),rgba(216,24,63,.78)),var(--fbg) center/cover}
+@media(max-width:860px){.pc:hover,.how div:hover{transform:none}}
 </style></head><body>
 <div id="toast" hidden role="status"></div>
 <div class="topbar" aria-hidden="true"><div class="tick"><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span><span class="tag">Vendora : « Ta boutique, ton marché, ton rythme. »</span><span>Paiement Wave : acompte 50 % sécurisé</span><span>50 secteurs • Côte d'Ivoire</span></div></div>

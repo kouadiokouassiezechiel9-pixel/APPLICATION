@@ -46,9 +46,18 @@ const IC = {
 const svg = k => '<svg viewBox="0 0 24 24" aria-hidden="true">' + IC[k] + '</svg>';
 const EMO = [['mode|vêt|habit|chauss|sneak|sac','shirt'],['montre|bijou|accessoire','watch'],['beaut|coiff|cheveu|mèche|perru|cosm','spark'],['tél|phone|électro|info|ordi|high','phone'],['maison|meuble|déco|cuisine|jardin','home'],['aliment|épic|boisson|restau|food','food'],['auto|voiture|moto|pièce','car'],['sport|fitness','sport'],['enfant|bébé|jouet','kids'],['santé|pharma|bien-être','health'],['livre|papet|école|éduc','book'],['art|artisan|créat','art']];
 const emo = l => { l = (l || '').toLowerCase(); const m = EMO.find(([k]) => new RegExp(k).test(l)); return m ? m[1] : 'bag'; };
+// Emblème réaliste : image rayon-<id>.png (fond transparent) ; si elle est absente, l'icône SVG reste affichée
+function emblem(c) {
+  const k = c.id || 'tous', ic = el('span', { className: 'cic', innerHTML: svg(c.id ? emo(c.label) : 'all') });
+  const im = new Image(); im.alt = ''; im.decoding = 'async'; let essai = 0;
+  im.onload = () => { ic.replaceChildren(im); ic.classList.add(/\.jpg$/.test(im.src) ? 'photo' : 'has'); };   // PNG transparent (objet 3D) sinon photo JPG
+  im.onerror = () => { if (!essai++) im.src = '/rayon-' + k + '.jpg'; };
+  im.src = '/rayon-' + k + '.png';
+  return ic;
+}
 function drawTabs() {
   const t = $('#rayonTabs'); if (!t) return;
-  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, el('span', { className: 'cic', innerHTML: svg(c.id ? emo(c.label) : 'all') }), el('span', { className: 'lbl' }, c.label))));
+  t.replaceChildren(...[{ id: '', label: 'Tous les rayons' }, ...CATS].map(c => el('button', { className: (c.id === rayon || (!c.id && !rayon)) ? 'on' : '', onclick: run(async () => chooseRayon(c.id)) }, emblem(c), el('span', { className: 'lbl' }, c.label))));
 }
 function updateRayonBar() { $('#rayonName').textContent = rayon ? catLabel(rayon) : 'Tous les rayons'; drawTabs(); }
 async function chooseRayon(id) {
@@ -481,4 +490,33 @@ refresh();
   const needLogin = () => { authMode(false); say('Connectez-vous ou créez un compte pour accéder à cet espace.', false); sc($('#auth')); };
   $('#tbMsg').onclick = () => me ? sc($('#convs')) : needLogin();
   $('#tbAcc').onclick = () => me ? sc($('#myorders')) : needLogin();
+})();
+
+// ---- Effet 3D : inclinaison au pointeur, profondeur de la scène d'accueil, images de la zone sous les rayons ----
+(() => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const fine = matchMedia('(hover:hover) and (pointer:fine)').matches;
+  const SEL = '.pc,.stage,.sl,.how>div,.trust li,#flash,.card';
+  let cur = null, raf = 0, ev;
+  const reset = t => { if (t) { t.style.removeProperty('--rx'); t.style.removeProperty('--ry'); t.classList.remove('tilting'); } };
+  const apply = () => {
+    raf = 0; if (!cur) return;
+    const r = cur.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width - .5, y = (ev.clientY - r.top) / r.height - .5;
+    const max = cur.matches('.stage') ? 6 : cur.matches('#flash') ? 1.5 : 4;
+    cur.style.setProperty('--ry', (x * max * 2).toFixed(2) + 'deg'); cur.style.setProperty('--rx', (-y * max * 2).toFixed(2) + 'deg'); cur.classList.add('tilting');
+  };
+  if (fine) {
+    document.addEventListener('pointermove', e => {
+      const t = e.target.closest && e.target.closest(SEL);
+      if (t !== cur) { reset(cur); cur = t; }
+      if (cur) { ev = e; if (!raf) raf = requestAnimationFrame(apply); }
+    }, { passive: true });
+    document.addEventListener('pointerleave', () => { reset(cur); cur = null; }, true);
+  }
+  const par = document.querySelectorAll('.stage,.pro');
+  addEventListener('scroll', () => { const h = innerHeight; par.forEach(p => { const r = p.getBoundingClientRect(); p.style.setProperty('--sy', (((r.top + r.height / 2) - h / 2) / h).toFixed(3)); }); }, { passive: true });
+  const tryImg = (src, ok) => { const im = new Image(); im.onload = () => ok(im); im.src = src; };
+  document.querySelectorAll('.trust li').forEach((li, i) => tryImg('/trust-' + ['paiement', 'livraison', 'etoiles', 'valides'][i] + '.png', im => { const s = li.querySelector('svg'); im.className = 'tico'; im.alt = ''; if (s) s.replaceWith(im); }));
+  tryImg('/hero-3d.png', im => { const sh = document.querySelector('.stage .shoe'); if (sh) { sh.src = im.src; sh.classList.add('cut'); } });
+  tryImg('/flash-bg.jpg', im => { const f = document.getElementById('flash'); if (f) { f.style.setProperty('--fbg', 'url(' + im.src + ')'); f.classList.add('hasbg'); } });
 })();
