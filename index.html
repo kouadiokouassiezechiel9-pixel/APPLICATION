@@ -373,7 +373,7 @@ section,.trust li,.how>div{box-shadow:0 1px 0 #fff inset,0 3px 0 rgba(17,20,24,.
 <div id="registerBox" hidden><h3>Créer un compte</h3>
 <select id="role"><option value="client">Client</option><option value="merchant">Commerçant</option></select><br>
 <input id="name" placeholder="Nom"><br><input id="remail" type="email" placeholder="E-mail" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="rpassword" type="password" placeholder="Mot de passe (8 caractères min.)" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"><br><input id="phone" placeholder="Téléphone"><br>
-<div id="merchantFields" hidden><input id="shop" placeholder="Nom de la boutique (commerçant)"><br><input id="loc" placeholder="Localisation (commerçant)"><br></div>
+<div id="merchantFields" hidden><input id="shop" placeholder="Nom de la boutique (commerçant)"><br><input id="loc" placeholder="Localisation (commerçant)"><br><input id="promoReg" maxlength="40" placeholder="Code promo (facultatif)" autocapitalize="characters" autocomplete="off"><p class="small">Boutique gratuite : vous pouvez ajouter 5 articles sans abonnement.</p></div>
 <button id="register">Créer le compte</button> <button id="toLogin">J'ai déjà un compte</button></div></section>
 
 <section id="convs" hidden><h2>Mes messages</h2><div id="threads"></div></section>
@@ -396,6 +396,9 @@ section,.trust li,.how>div{box-shadow:0 1px 0 #fff inset,0 3px 0 rgba(17,20,24,.
 <button id="shSave">Enregistrer ma boutique</button>
 </div>
 <h3>Abonnement mensuel</h3>
+<p class="small">Les 5 premiers articles sont gratuits. Pour en ajouter davantage, un abonnement mensuel est nécessaire.</p>
+<div id="promoBox"><input id="promoCode" maxlength="40" placeholder="Code promo" autocapitalize="characters" autocomplete="off"> <button id="promoApply">Appliquer le code</button></div>
+<p id="promoInfo" class="small" hidden></p>
 <button id="planStd">Abonnement Standard - 3 000 francs</button> <button id="planPre">Abonnement Premium - 5 000 francs</button>
 <h3>Capacité d'articles (paiement séparé)</h3>
 <select id="tier"></select> <button id="pay">Payer ce palier avec Wave</button>

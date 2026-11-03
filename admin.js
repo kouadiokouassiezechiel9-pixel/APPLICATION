@@ -30,6 +30,19 @@ async function dash() {
   $('#arts').replaceChildren(...arts.map(a => el('div', { className: 'row' },
     a.name + ' - ' + a.shop_name + ' - ' + a.price + ' francs' + (a.moderation === 'removed' ? ' [RETIRÉ]' : '') + ' ',
     ...(a.moderation === 'ok' ? [el('button', { onclick: run(async () => { const reason = prompt('Motif du retrait (produit illégal, etc.) :'); if (reason) { await api('admin/articles/' + a.id + '/remove', 'POST', { reason }); await dash(); } }) }, 'Retirer')] : []))));
+  const promos = await api('admin/promos');
+  $('#promos').replaceChildren(
+    el('div', { className: 'row' },
+      el('input', { id: 'pcCode', placeholder: 'CODE (ex : BIENVENUE)', maxLength: 30 }),
+      el('input', { id: 'pcStd', type: 'number', placeholder: 'Standard (1500)', value: 1500 }),
+      el('input', { id: 'pcPre', type: 'number', placeholder: 'Premium (3000)', value: 3000 }),
+      el('input', { id: 'pcMax', type: 'number', placeholder: 'Utilisations max (facultatif)' }),
+      el('button', { onclick: run(async () => {
+        await api('admin/promos', 'POST', { code: $('#pcCode').value, standardPrice: +$('#pcStd').value, premiumPrice: +$('#pcPre').value, maxUses: $('#pcMax').value ? +$('#pcMax').value : null });
+        await dash(); }) }, 'Créer le code')),
+    ...promos.map(p => el('div', { className: 'row' },
+      p.code + ' · Standard ' + p.standard_price + ' / Premium ' + p.premium_price + ' francs · ' + p.uses + (p.max_uses ? ' / ' + p.max_uses : '') + ' utilisation(s) · ' + (p.active ? 'actif' : 'désactivé') + ' ',
+      el('button', { onclick: run(async () => { await api('admin/promos/' + p.id + '/toggle', 'POST', {}); await dash(); }) }, p.active ? 'Désactiver' : 'Activer'))));
   const users = await api('admin/users');
   $('#users').replaceChildren(...users.map(u => el('div', { className: 'row' },
     u.name + ' - ' + u.role + ' - ' + u.status + ' ',

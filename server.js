@@ -40,7 +40,7 @@ const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style
   'hero-3d.png', 'flash-bg.jpg', ...['paiement', 'livraison', 'etoiles', 'valides'].map(k => 'trust-' + k + '.png'), // scène d'accueil, fond promos, pastilles de réassurance
   ...['tous', 'alimentation', 'vivriers', 'frais', 'cultures', 'materiaux', 'electromenager', 'electronique', 'vetements', 'chaussures', 'sousvetements', 'beaute', 'maison', 'enfants', 'auto', 'outils', 'autres'].flatMap(k => ['rayon-' + k + '.png', 'rayon-' + k + '.jpg'])]; // emblèmes réalistes des rayons
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
-app.get('/version', (req, res) => res.type('text').send('version-fonctions-2026-10-25'));
+app.get('/version', (req, res) => res.type('text').send('version-promo-5gratuits-2026-11-03'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
 for (const n of pagesPubliques) app.get('/' + n, (req, res) => { const f = trouver(n); f ? res.sendFile(f) : res.status(404).end(); });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -88,6 +88,7 @@ app.post('/api/register', limiter, wrap(async (req, res) => {
     name: z.string().trim().min(2).max(80), email: z.string().trim().email().max(120),
     phone: z.string().trim().max(30).optional(), password: z.string().trim().min(8).max(200),
     shopName: z.string().min(2).max(80).optional(), location: z.string().max(120).optional(),
+    promoCode: z.string().trim().max(40).optional(),
   }), req, res);
   if (!d) return;
   if (d.role === 'merchant' && !d.shopName) return res.status(400).json({ error: 'Nom de boutique requis' });
@@ -96,12 +97,16 @@ app.post('/api/register', limiter, wrap(async (req, res) => {
     await tx(async c => {
       const u = await c.query('INSERT INTO users(role,name,email,phone,password_hash) VALUES($1,$2,lower($3),$4,$5) RETURNING id',
         [d.role, d.name, d.email, d.phone || null, hash]);
-      if (d.role === 'merchant')
-        await c.query('INSERT INTO merchants(user_id,shop_name,location) VALUES($1,$2,$3)', [u.rows[0].id, d.shopName, d.location || null]);
+      if (d.role === 'merchant') {
+        let promoId = null;
+        if (d.promoCode) { const p = await usePromo(c, d.promoCode); if (!p) throw new Error('PROMO'); promoId = p.id; }
+        await c.query('INSERT INTO merchants(user_id,shop_name,location,promo_code_id) VALUES($1,$2,$3,$4)', [u.rows[0].id, d.shopName, d.location || null, promoId]);
+      }
     });
     if (d.role === 'merchant') notifyAdmins(pool, 'Nouveau commerçant à valider', d.shopName);
     res.status(201).json({ ok: true });
   } catch (e) {
+    if (e.message === 'PROMO') return res.status(400).json({ error: 'Code promo invalide, désactivé ou épuisé.' });
     if (e.code === '23505') return res.status(409).json({ error: 'Cet e-mail a déjà un compte. Utilisez le bloc Connexion avec cet e-mail et votre mot de passe.' });
     throw e;
   }
@@ -261,7 +266,9 @@ async function handleWaveWebhook(req, res) {
 
 // ---------- Client ----------
 // Boutique visible seulement si son abonnement mensuel est actif (alias SQL : m = merchants)
-const PLAN_OK = "EXISTS (SELECT 1 FROM plans pl WHERE pl.merchant_id=m.user_id AND pl.status='active' AND pl.expires_at>now())";
+const FREE_ARTICLES = 5;   // articles gratuits à l'inscription (on compte les ARTICLES, jamais les exemplaires en stock)
+const PLAN_OK = `(EXISTS (SELECT 1 FROM plans pl WHERE pl.merchant_id=m.user_id AND pl.status='active' AND pl.expires_at>now())
+  OR (SELECT count(*) FROM articles fa WHERE fa.merchant_id=m.user_id AND fa.online) BETWEEN 1 AND ${FREE_ARTICLES})`;
 // Étoiles : 1 -> 3 automatique (assez d'avis et bonne moyenne) ; 3 -> 5 : confirmation de l'admin PUIS paiement
 const FIVE_STAR_FEE = 10000; // francs, prix du passage à 5 étoiles (à ajuster)
 const RULES = { minReviews: 5, minAvg: 4, fee: FIVE_STAR_FEE };
@@ -350,7 +357,7 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
         const r = await c.query(
           `UPDATE articles a SET stock=a.stock-$1 FROM merchants m
            WHERE a.id=$2 AND a.online AND a.moderation='ok' AND a.stock>=$1 AND m.user_id=a.merchant_id AND m.validated
-             AND EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.status='active' AND p.expires_at>now())
+             AND ${PLAN_OK}
            RETURNING (CASE WHEN a.promo_price IS NOT NULL AND (a.promo_until IS NULL OR a.promo_until >= current_date) THEN a.promo_price ELSE a.price END) AS price`, [it.qty, it.id]);
         if (!r.rowCount) throw new Error('STOCK');
         total += r.rows[0].price * it.qty;
@@ -388,17 +395,40 @@ app.get('/api/merchant/me', auth('merchant'), wrap(async (req, res) => {
        (SELECT expires_at FROM plans WHERE merchant_id=m.user_id AND status='active' AND expires_at>now() ORDER BY id DESC LIMIT 1) AS plan_expires_at,
        (SELECT count(*)::int FROM articles WHERE merchant_id=m.user_id AND online) AS used
      FROM merchants m WHERE m.user_id=$1`, [req.user.id]);
-  res.json({ ...r.rows[0], rules: RULES });
+  res.json({ ...r.rows[0], rules: RULES, prices: await planPrices(pool, req.user.id), free: FREE_ARTICLES });
 }));
 
 // Abonnement mensuel : standard 3000 francs, premium 5000 francs (30 jours, renouvellement = nouveau paiement)
 const PLANS = { standard: 3000, premium: 5000 };
+// Code promo : l'administrateur crée les codes (prix réduits). Le commerçant en saisit un à l'inscription ou plus tard.
+async function usePromo(q, code) {
+  return (await q.query(`UPDATE promo_codes SET uses=uses+1 WHERE code=upper($1) AND active AND (max_uses IS NULL OR uses<max_uses) RETURNING id`, [String(code).trim()])).rows[0] || null;
+}
+async function planPrices(q, uid) {
+  const r = (await q.query('SELECT p.code,p.standard_price,p.premium_price FROM merchants m JOIN promo_codes p ON p.id=m.promo_code_id WHERE m.user_id=$1 AND p.active', [uid])).rows[0];
+  return r ? { standard: r.standard_price, premium: r.premium_price, code: r.code } : { standard: PLANS.standard, premium: PLANS.premium, code: null };
+}
+app.post('/api/merchant/promo', auth('merchant'), wrap(async (req, res) => {
+  const d = parse(z.object({ code: z.string().trim().min(2).max(40) }), req, res);
+  if (!d) return;
+  const out = await tx(async c => {
+    const m = (await c.query('SELECT promo_code_id FROM merchants WHERE user_id=$1 FOR UPDATE', [req.user.id])).rows[0];
+    if (m.promo_code_id) return { already: true };
+    const p = await usePromo(c, d.code);
+    if (!p) return { bad: true };
+    await c.query('UPDATE merchants SET promo_code_id=$1 WHERE user_id=$2', [p.id, req.user.id]);
+    return { ok: true };
+  });
+  if (out.already) return res.status(409).json({ error: 'Un code promo est déjà appliqué à votre boutique.' });
+  if (out.bad) return res.status(400).json({ error: 'Code promo invalide, désactivé ou épuisé.' });
+  res.json({ ok: true, prices: await planPrices(pool, req.user.id) });
+}));
 app.post('/api/merchant/plan', auth('merchant'), wrap(async (req, res) => {
   const d = parse(z.object({ tier: z.enum(['standard', 'premium']) }), req, res);
   if (!d) return;
   const m = (await pool.query('SELECT validated FROM merchants WHERE user_id=$1', [req.user.id])).rows[0];
   if (!m.validated) return res.status(403).json({ error: 'Compte en attente de validation' });
-  try { res.json(await startPayment(req.user.id, 'plan', PLANS[d.tier], { tier: d.tier })); }
+  try { res.json(await startPayment(req.user.id, 'plan', (await planPrices(pool, req.user.id))[d.tier], { tier: d.tier })); }
   catch (e) { if (!payFail(res, e)) throw e; }
 }));
 
@@ -429,15 +459,18 @@ app.post('/api/merchant/articles', auth('merchant'), wrap(async (req, res) => {
     return res.status(422).json({ error: 'Ce produit semble interdit à la vente en Côte d\'Ivoire. Il ne peut pas être publié.' });
   const out = await tx(async c => {
     await c.query('SELECT 1 FROM merchants WHERE user_id=$1 FOR UPDATE', [req.user.id]); // évite les ajouts simultanés
-    const q = (await c.query("SELECT quota FROM subscriptions WHERE merchant_id=$1 AND status='active' ORDER BY id DESC LIMIT 1", [req.user.id])).rows[0];
-    if (!(await c.query("SELECT 1 FROM plans WHERE merchant_id=$1 AND status='active' AND expires_at>now()", [req.user.id])).rowCount) return { noPlan: true };
+    // On compte des ARTICLES (lignes), pas des exemplaires : un article en 105 exemplaires = 1 article.
     const used = (await c.query('SELECT count(*)::int n FROM articles WHERE merchant_id=$1 AND online', [req.user.id])).rows[0].n;
-    if (!q || used >= q.quota) return { blocked: true, noQuota: !q, next: price((q ? q.quota : 0) + 10) };
+    if (used >= FREE_ARTICLES) {   // les 5 premiers articles sont gratuits ; au-delà : abonnement mensuel + capacité
+      const q = (await c.query("SELECT quota FROM subscriptions WHERE merchant_id=$1 AND status='active' ORDER BY id DESC LIMIT 1", [req.user.id])).rows[0];
+      if (!(await c.query("SELECT 1 FROM plans WHERE merchant_id=$1 AND status='active' AND expires_at>now()", [req.user.id])).rowCount) return { noPlan: true };
+      if (!q || used >= q.quota) return { blocked: true, noQuota: !q, next: price((q ? q.quota : 0) + 10) };
+    }
     const a = await c.query('INSERT INTO articles(merchant_id,name,description,category,details,price,stock) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',
       [req.user.id, d.name, d.description || null, d.category || null, d.details || null, d.price, d.stock]);
     return { id: a.rows[0].id };
   });
-  if (out.noPlan) return res.status(402).json({ error: 'Abonnement mensuel requis (Standard 3000 ou Premium 5000 francs)' });
+  if (out.noPlan) { const pr = await planPrices(pool, req.user.id); return res.status(402).json({ error: 'Vos ' + FREE_ARTICLES + ' articles gratuits sont utilisés. Pour en ajouter, abonnement mensuel requis (Standard ' + pr.standard + ' ou Premium ' + pr.premium + ' francs)' }); }
   if (out.blocked) return res.status(402).json({ error: out.noQuota ? 'Payez d\'abord la capacité d\'articles (10 articles = ' + price(10) + ' francs)' : 'Quota atteint : passez au palier supérieur', nextTierPrice: out.next });
   res.status(201).json(out);
 }));
@@ -531,7 +564,7 @@ app.get('/api/admin/merchants/pending', auth('admin'), wrap(async (req, res) => 
 app.post('/api/admin/merchants/:id/validate', auth('admin'), wrap(async (req, res) => {
   const vid = +req.params.id || 0;
   const v = await pool.query('UPDATE merchants SET validated=true WHERE user_id=$1 AND NOT validated', [vid]);
-  if (v.rowCount) notify(pool, vid, 'admin', 'Boutique validée', 'Votre boutique est validée. Payez l\'abonnement mensuel et la capacité d\'articles pour apparaître chez les clients.');
+  if (v.rowCount) notify(pool, vid, 'admin', 'Boutique validée', 'Votre boutique est validée. Ajoutez jusqu\'à ' + FREE_ARTICLES + ' articles gratuitement. Au-delà, un abonnement mensuel est nécessaire.');
   res.json({ ok: true });
 }));
 app.post('/api/admin/users/:id/suspend', auth('admin'), wrap(async (req, res) => {
@@ -752,6 +785,25 @@ app.post('/api/admin/articles/:id/remove', auth('admin'), wrap(async (req, res) 
   if (!d) return;
   const rm = await pool.query("UPDATE articles SET moderation='removed', online=false, removed_reason=$1 WHERE id=$2 RETURNING merchant_id, name", [d.reason, +req.params.id || 0]);
   if (rm.rows[0]) notify(pool, rm.rows[0].merchant_id, 'admin', 'Article retiré : ' + rm.rows[0].name, d.reason);
+  res.json({ ok: true });
+}));
+
+// ---- Codes promo (administrateur) ----
+app.get('/api/admin/promos', auth('admin'), wrap(async (req, res) => {
+  res.json((await pool.query('SELECT id,code,standard_price,premium_price,max_uses,uses,active FROM promo_codes ORDER BY id DESC LIMIT 100')).rows);
+}));
+app.post('/api/admin/promos', auth('admin'), wrap(async (req, res) => {
+  const d = parse(z.object({ code: z.string().trim().regex(/^[A-Za-z0-9_-]{3,30}$/),
+    standardPrice: z.number().int().min(0).max(3000).default(1500), premiumPrice: z.number().int().min(0).max(5000).default(3000),
+    maxUses: z.number().int().min(1).max(1000000).nullable().optional() }), req, res);
+  if (!d) return;
+  try {
+    await pool.query('INSERT INTO promo_codes(code,standard_price,premium_price,max_uses) VALUES(upper($1),$2,$3,$4)', [d.code, d.standardPrice, d.premiumPrice, d.maxUses || null]);
+    res.status(201).json({ ok: true });
+  } catch (e) { if (e.code === '23505') return res.status(409).json({ error: 'Ce code existe déjà' }); throw e; }
+}));
+app.post('/api/admin/promos/:id/toggle', auth('admin'), wrap(async (req, res) => {
+  await pool.query('UPDATE promo_codes SET active = NOT active WHERE id=$1', [+req.params.id || 0]);
   res.json({ ok: true });
 }));
 

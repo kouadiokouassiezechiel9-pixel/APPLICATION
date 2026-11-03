@@ -299,18 +299,22 @@ async function sendPhoto(id, file) {
 async function loadMerchant() {
   const m = await api('merchant/me');
   // Le formulaire d'ajout n'apparaît qu'après paiement de l'abonnement mensuel ET de la capacité d'articles
-  const prixTier = fmt(tier(10)), abo = 'Standard ' + fmt(3000) + ' ou Premium ' + fmt(5000);
+  const free = m.free || 5, pr = m.prices || { standard: 3000, premium: 5000, code: null };
+  const prixTier = fmt(tier(10)), abo = 'Standard ' + fmt(pr.standard) + ' ou Premium ' + fmt(pr.premium);
   let need = '';
-  if (!m.plan && !m.quota) need = 'Pour ajouter vos articles, payez d\'abord : 1) l\'abonnement mensuel (' + abo + ') et 2) la capacité d\'articles (par exemple 10 articles = ' + prixTier + ').';
+  if (m.used < free) need = '';   // articles gratuits : on compte des articles, pas des exemplaires en stock
+  else if (!m.plan && !m.quota) need = 'Vos ' + free + ' articles gratuits sont utilisés. Pour en ajouter, payez : 1) l\'abonnement mensuel (' + abo + ') et 2) la capacité d\'articles (par exemple 10 articles = ' + prixTier + ').';
   else if (!m.plan) need = 'Il reste à payer l\'abonnement mensuel (' + abo + ') pour pouvoir ajouter des articles.';
   else if (!m.quota) need = 'Il reste à payer la capacité d\'articles (par exemple 10 articles = ' + prixTier + ') pour pouvoir ajouter des articles.';
   else if (m.quota <= m.used) need = 'Vous avez atteint votre capacité de ' + m.quota + ' articles. Payez un palier supérieur pour en ajouter.';
+  $('#planStd').textContent = 'Abonnement Standard - ' + fmt(pr.standard); $('#planPre').textContent = 'Abonnement Premium - ' + fmt(pr.premium);
+  $('#promoBox').hidden = !!pr.code; $('#promoInfo').hidden = !pr.code; $('#promoInfo').textContent = pr.code ? 'Code promo ' + pr.code + ' appliqué : prix réduits.' : '';
   $('#addBox').hidden = need !== ''; $('#payFirst').hidden = need === ''; $('#payFirst').textContent = need;
   drawStars(m);
   loadStats().catch(() => {});
   fillShop(m);
   await fillCats();
-  $('#quota').textContent = (m.validated ? '' : 'Compte en attente de validation. ') + (m.plan ? 'Abonnement ' + m.plan + ' jusqu\'au ' + new Date(m.plan_expires_at).toLocaleDateString('fr-FR') : 'Aucun abonnement mensuel actif : vos articles sont masqués') + ' · Articles en ligne : ' + m.used + ' / ' + m.quota;
+  $('#quota').textContent = (m.validated ? '' : 'Compte en attente de validation. ') + (m.plan ? 'Abonnement ' + m.plan + ' jusqu\'au ' + new Date(m.plan_expires_at).toLocaleDateString('fr-FR') : (m.used > free ? 'Aucun abonnement mensuel actif : vos articles sont masqués' : 'Offre gratuite : jusqu\'à ' + free + ' articles sans abonnement')) + ' · Articles en ligne : ' + m.used + ' / ' + Math.max(m.plan ? m.quota : 0, free);
   $('#tier').replaceChildren(...[10, 20, 30, 40, 50, 100].map(n => el('option', { value: n }, n + ' articles - ' + fmt(tier(n)))));
   const list = await api('merchant/articles');
   $('#mine').replaceChildren(...list.map(a => {
@@ -383,12 +387,13 @@ const welcome = (extra) => {
 $('#login').onclick = run(async () => { await api('login', 'POST', { email: $('#email').value.trim().toLowerCase(), password: $('#password').value }); await refresh(); welcome(); });
 $('#register').onclick = run(async () => {
   await api('register', 'POST', { role: $('#role').value, name: $('#name').value, email: $('#remail').value.trim().toLowerCase(), phone: $('#phone').value || undefined,
-    password: $('#rpassword').value.trim(), shopName: $('#shop').value || undefined, location: $('#loc').value || undefined });
+    password: $('#rpassword').value.trim(), shopName: $('#shop').value || undefined, location: $('#loc').value || undefined,
+    promoCode: ($('#role').value === 'merchant' && $('#promoReg').value.trim()) || undefined });
   const estCommercant = $('#role').value === 'merchant';
   try {
     await api('login', 'POST', { email: $('#remail').value.trim().toLowerCase(), password: $('#rpassword').value.trim() });
     await refresh();
-    welcome(estCommercant ? 'Votre boutique sera visible après validation par l\'administrateur et paiement du forfait mensuel.' : '');
+    welcome(estCommercant ? 'Votre boutique est créée gratuitement : ajoutez jusqu\'à 5 articles sans abonnement. Elle sera visible après validation par l\'administrateur.' : '');
   } catch { say('Compte créé ! Connectez-vous avec le même e-mail et mot de passe.'); }
 });
 $('#logout').onclick = run(async () => { await api('logout', 'POST', {}); cart = []; drawCart(); await refresh(); window.scrollTo({ top: 0 }); });
@@ -407,6 +412,7 @@ $('#ckOk').onclick = run(async () => {
   if (r.payUrl) { location.href = r.payUrl; return; } // paiement sur Wave
   drawCart(); say('Commande #' + r.id + ' payée (mode test).'); await search(); await loadMyOrders();
 });
+$('#promoApply').onclick = run(async () => { const c = $('#promoCode').value.trim(); if (!c) throw new Error('Saisissez un code promo'); await api('merchant/promo', 'POST', { code: c }); $('#promoCode').value = ''; say('Code promo appliqué.'); await loadMerchant(); });
 $('#planStd').onclick = run(async () => { goPay(await api('merchant/plan', 'POST', { tier: 'standard' })); });
 $('#planPre').onclick = run(async () => { goPay(await api('merchant/plan', 'POST', { tier: 'premium' })); });
 $('#pay').onclick = run(async () => goPay(await api('merchant/subscribe', 'POST', { quota: +$('#tier').value })));

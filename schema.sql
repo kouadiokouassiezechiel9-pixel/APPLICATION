@@ -75,3 +75,11 @@ ALTER TABLE merchants ADD COLUMN IF NOT EXISTS stars INT NOT NULL DEFAULT 1;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS since_year INT;
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS logo BYTEA;
+
+CREATE TABLE IF NOT EXISTS promo_codes(
+  id SERIAL PRIMARY KEY, code TEXT UNIQUE NOT NULL,
+  standard_price INT NOT NULL DEFAULT 1500 CHECK (standard_price >= 0),
+  premium_price INT NOT NULL DEFAULT 3000 CHECK (premium_price >= 0),
+  max_uses INT, uses INT NOT NULL DEFAULT 0, active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now());
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS promo_code_id INT REFERENCES promo_codes(id);
