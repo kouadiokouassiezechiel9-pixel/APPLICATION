@@ -40,7 +40,7 @@ const pagesPubliques = ['index.html', 'app.js', 'admin.html', 'admin.js', 'style
   'hero-3d.png', 'flash-bg.jpg', ...['paiement', 'livraison', 'etoiles', 'valides'].map(k => 'trust-' + k + '.png'), // scène d'accueil, fond promos, pastilles de réassurance
   ...['tous', 'alimentation', 'vivriers', 'frais', 'cultures', 'materiaux', 'electromenager', 'electronique', 'vetements', 'chaussures', 'sousvetements', 'beaute', 'maison', 'enfants', 'auto', 'outils', 'autres'].flatMap(k => ['rayon-' + k + '.png', 'rayon-' + k + '.jpg'])]; // emblèmes réalistes des rayons
 const trouver = n => [path.join(__dirname, n), path.join(__dirname, 'public', n)].find(f => fs.existsSync(f)); // racine d'abord (versions les plus récentes)
-app.get('/version', (req, res) => res.type('text').send('version-promo-5gratuits-2026-11-03'));
+app.get('/version', (req, res) => res.type('text').send('version-vues-admin-2026-11-06'));
 app.get('/', (req, res) => { const f = trouver('index.html'); f ? res.sendFile(f) : res.status(404).send('index.html introuvable'); });
 for (const n of pagesPubliques) app.get('/' + n, (req, res) => { const f = trouver(n); f ? res.sendFile(f) : res.status(404).end(); });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -571,6 +571,21 @@ app.post('/api/admin/users/:id/suspend', auth('admin'), wrap(async (req, res) =>
   await pool.query("UPDATE users SET status='suspended' WHERE id=$1 AND role<>'admin'", [+req.params.id || 0]);
   res.json({ ok: true });
 }));
+app.get('/api/admin/overview', auth('admin'), wrap(async (req, res) => {
+  const q = async sql => (await pool.query(sql)).rows;
+  res.json({
+    shops: await q('SELECT * FROM v_commercants ORDER BY id'),
+    articles: await q('SELECT * FROM v_articles ORDER BY entreprise, article'),
+    clients: await q('SELECT * FROM v_clients ORDER BY id'),
+    orders: await q('SELECT * FROM v_commandes ORDER BY id DESC LIMIT 300'),
+    payments: await q('SELECT * FROM v_paiements ORDER BY id DESC LIMIT 300'),
+    plans: await q('SELECT * FROM v_abonnements ORDER BY id DESC LIMIT 300'),
+    reviews: await q('SELECT * FROM v_avis ORDER BY id DESC LIMIT 300'),
+    messages: await q('SELECT * FROM v_messages ORDER BY id DESC LIMIT 300'),
+    promos: await q('SELECT * FROM v_codes_promo ORDER BY id'),
+    journal: await q('SELECT * FROM v_journal ORDER BY date DESC NULLS LAST LIMIT 300'),
+  });
+}));
 app.get('/api/admin/stats', auth('admin'), wrap(async (req, res) => {
   const r = await pool.query(`SELECT (SELECT count(*)::int FROM users) users,
     (SELECT count(*)::int FROM orders) orders,
@@ -837,6 +852,7 @@ app.post('/api/admin/promos/:id/toggle', auth('admin'), wrap(async (req, res) =>
       id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE, kind TEXT NOT NULL,
       title TEXT NOT NULL, body TEXT, ref TEXT, read BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read, id DESC);`);
+  await pool.query(fs.readFileSync(__dirname + '/vues.sql', 'utf8'));
   const { ADMIN_EMAIL: e, ADMIN_PASSWORD: p } = process.env;
   if (e && p && p.length >= 12) {
     const has = await pool.query("SELECT 1 FROM users WHERE role='admin'");

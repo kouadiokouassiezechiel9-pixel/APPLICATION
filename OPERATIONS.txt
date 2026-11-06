@@ -1,0 +1,33 @@
+TOUTES LES OPERATIONS POSSIBLES SUR LE SITE
+
+VISITEUR / TOUT LE MONDE
+- S'inscrire (client ou commercant), se connecter, se deconnecter, voir son profil
+- Parcourir les articles (recherche, categories), voir les photos d'un article
+- Voir la liste des boutiques, la fiche d'une boutique et son logo
+
+CLIENT
+- Commander (panier), payer par Wave (acompte / paiement), annulation auto apres 35 min sans paiement
+- Voir ses commandes, confirmer la reception d'un article
+- Laisser un avis (note 1 a 5 + commentaire) sur un commercant apres reception
+- Ecrire aux commercants, lire ses conversations
+- Lire ses notifications
+
+COMMERCANT
+- Gerer sa boutique : profil, description, localite, WhatsApp, logo
+- Ajouter / supprimer des articles (5 gratuits), ajouter / supprimer des photos (20 max), mettre un prix promo
+- Payer un abonnement Standard ou Premium (avec ou sans code promo), souscrire un pack d'articles
+- Voir ses statistiques et les commandes recues, changer le statut d'une ligne (en attente / en preparation / livre)
+- Repondre aux messages (le client ecrit en premier)
+- Demander le passage a 5 etoiles puis le payer apres confirmation admin
+- Lire ses notifications
+
+ADMINISTRATEUR (connexion + code 2FA)
+- Voir statistiques, utilisateurs, entreprises, articles, clients, commandes, paiements, abonnements, avis, messages, journal
+- Valider un commercant en attente
+- Confirmer ou refuser une demande 5 etoiles
+- Retirer un article (avec motif)
+- Suspendre un utilisateur
+- Creer, activer, desactiver des codes promo
+
+SYSTEME
+- Webhook Wave (confirmation des paiements), liberation automatique des commandes non payees

@@ -8,6 +8,11 @@ const api = async (p, m = 'GET', b) => {
 };
 const run = f => async () => { try { await f(); } catch (e) { alert(e.message); } };
 
+const fmt = v => v == null ? '' : typeof v === 'boolean' ? (v ? 'oui' : 'non') : (typeof v === 'string' && /^\d{4}-\d\d-\d\dT/.test(v)) ? new Date(v).toLocaleString('fr-FR') : v;
+const table = (rows, empty) => !rows.length ? el('p', {}, empty)
+  : el('table', {}, el('thead', {}, el('tr', {}, ...Object.keys(rows[0]).map(k => el('th', {}, k.replace(/_/g, ' '))))),
+      el('tbody', {}, ...rows.map(r => el('tr', {}, ...Object.values(r).map(v => el('td', {}, String(fmt(v))))))));
+
 async function dash() {
   $('#login').hidden = $('#step2').hidden = true; $('#dash').hidden = false;
   const s = await api('admin/stats');
@@ -48,6 +53,16 @@ async function dash() {
     u.name + ' - ' + u.role + ' - ' + u.status + ' ',
     ...(u.role !== 'admin' && u.status === 'active'
       ? [el('button', { onclick: run(async () => { if (confirm('Suspendre ' + u.name + ' ?')) { await api('admin/users/' + u.id + '/suspend', 'POST', {}); await dash(); } }) }, 'Suspendre')] : []))));
+  const ov = await api('admin/overview');
+  $('#dbShops').replaceChildren(table(ov.shops, 'Aucune entreprise inscrite.'));
+  $('#dbArts').replaceChildren(table(ov.articles, 'Aucun article.'));
+  $('#dbClients').replaceChildren(table(ov.clients, 'Aucun client inscrit.'));
+  $('#dbOrders').replaceChildren(table(ov.orders, 'Aucune commande.'));
+  $('#dbPay').replaceChildren(table(ov.payments, 'Aucun paiement.'));
+  $('#dbPlans').replaceChildren(table(ov.plans, 'Aucun abonnement.'));
+  $('#dbRev').replaceChildren(table(ov.reviews, 'Aucun avis.'));
+  $('#dbMsg').replaceChildren(table(ov.messages, 'Aucun message.'));
+  $('#dbLog').replaceChildren(table(ov.journal, 'Aucune opération.'));
 }
 $('#go').onclick = run(async () => {
   const r = await api('admin/login', 'POST', { email: $('#email').value, password: $('#password').value });

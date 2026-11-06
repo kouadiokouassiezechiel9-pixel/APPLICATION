@@ -79,7 +79,7 @@ dialog input,dialog select{width:100%;margin-right:0}
 .bars{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding:6px 0}
 .bar{display:flex;flex-direction:column;align-items:center;font-size:.65rem;color:var(--mut)}
 .bar i{display:block;width:18px;background:var(--acc);border-radius:6px 6px 0 0}
-body{max-width:900px;padding-top:16px}code{background:var(--soft);color:var(--acc2);padding:2px 6px;border-radius:6px;word-break:break-all}
+body{max-width:900px;padding-top:16px}.tw{overflow-x:auto}table{border-collapse:collapse;font-size:.8rem;width:100%}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:var(--panel2);white-space:nowrap}code{background:var(--soft);color:var(--acc2);padding:2px 6px;border-radius:6px;word-break:break-all}
 </style></head><body>
 <h1>Administration</h1>
 <div id="login">
@@ -98,5 +98,14 @@ body{max-width:900px;padding-top:16px}code{background:var(--soft);color:var(--ac
  <h2>Demandes 5 étoiles</h2><div id="starReq"></div>
  <h2>Produits (modération)</h2><div id="arts"></div>
  <h2>Codes promo</h2><div id="promos"></div>
- <h2>Utilisateurs</h2><div id="users"></div></div>
+ <h2>Utilisateurs</h2><div id="users"></div>
+ <h2>Entreprises</h2><div class="tw" id="dbShops"></div>
+ <h2>Articles, stock et prix</h2><div class="tw" id="dbArts"></div>
+ <h2>Clients</h2><div class="tw" id="dbClients"></div>
+ <h2>Commandes</h2><div class="tw" id="dbOrders"></div>
+ <h2>Paiements</h2><div class="tw" id="dbPay"></div>
+ <h2>Abonnements</h2><div class="tw" id="dbPlans"></div>
+ <h2>Avis</h2><div class="tw" id="dbRev"></div>
+ <h2>Messages</h2><div class="tw" id="dbMsg"></div>
+ <h2>Journal de toutes les opérations</h2><div class="tw" id="dbLog"></div></div>
 <script src="/admin.js"></script></body></html>
