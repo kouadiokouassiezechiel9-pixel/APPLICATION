@@ -857,6 +857,8 @@ app.post('/api/admin/promos/:id/toggle', auth('admin'), wrap(async (req, res) =>
   if (e && p && p.length >= 12) {
     const has = await pool.query("SELECT 1 FROM users WHERE role='admin'");
     if (!has.rowCount) await pool.query("INSERT INTO users(role,name,email,password_hash) VALUES('admin','Administrateur',lower($1),$2)", [e, await bcrypt.hash(p, 12)]);
+    else await pool.query("UPDATE users SET email=lower($1) WHERE role='admin' AND email<>lower($1)", [e])
+      .catch(err => console.error('Changement e-mail admin impossible :', err.message));
   }
   setInterval(() => pool.query("SELECT (ref->>'orderId')::int AS oid FROM payments WHERE kind='order' AND status='pending' AND created_at < now() - interval '35 minutes'")
     .then(r => Promise.all(r.rows.map(x => releaseOrder(x.oid)))).catch(console.error), 5 * 60 * 1000).unref();

@@ -83,3 +83,36 @@ CREATE TABLE IF NOT EXISTS promo_codes(
   max_uses INT, uses INT NOT NULL DEFAULT 0, active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now());
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS promo_code_id INT REFERENCES promo_codes(id);
+
+-- ===== CORRECTIONS (index, e-mails, contraintes) - rejouables sans risque =====
+CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_article ON order_items(article_id);
+CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_merchant ON subscriptions(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_articles_public ON articles(online, moderation);
+
+DO $$
+DECLARE c RECORD;
+BEGIN
+  -- e-mails : Jean@x.com et jean@x.com = meme compte
+  BEGIN
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(lower(email));
+  EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'index email ignore : %', SQLERRM; END;
+  -- contraintes de valeurs (ignorees si des anciennes donnees ne les respectent pas)
+  FOR c IN SELECT * FROM (VALUES
+    ('chk_merchants_stars','merchants','CHECK (stars BETWEEN 1 AND 5)'),
+    ('chk_articles_moderation','articles','CHECK (moderation IN (''ok'',''removed''))'),
+    ('chk_users_status','users','CHECK (status IN (''active'',''suspended''))'),
+    ('chk_order_items_status','order_items','CHECK (status IN (''pending'',''preparing'',''delivered''))'),
+    ('chk_orders_payment_status','orders','CHECK (payment_status IN (''unpaid'',''paid'',''expired''))')
+  ) AS t(n,tbl,def) LOOP
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = c.n) THEN
+        EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I %s', c.tbl, c.n, c.def);
+      END IF;
+    EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'contrainte % ignoree : %', c.n, SQLERRM; END;
+  END LOOP;
+END $$;
+
+COMMENT ON TABLE subscriptions IS 'OBSOLETE : ancien systeme a quota. Le droit de publier vient de plans + 5 articles gratuits.';
