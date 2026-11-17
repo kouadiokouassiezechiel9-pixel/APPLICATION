@@ -3,109 +3,118 @@
 <meta name="robots" content="noindex"><title>Administration</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:light;--bg:#f3ede1;--panel:#fffcf6;--panel2:#f8f2e6;--line:#d9cfbb;--ink:#0e2233;--txt:#0e2233;--mut:#5d6b78;--acc:#b3264f;--acc2:#8f1d3f;--soft:#fbe6ec;--err:#b3261e;--disp:"Syncopate","Arial Black",sans-serif;--sans:"Lato",system-ui,sans-serif;--ease:cubic-bezier(.33,0,0,1);--r:20px}
+:root{color-scheme:light;--bg:#eef3ee;--side:#0f3d36;--side2:#16524a;--panel:rgba(255,255,255,.72);--line:rgba(15,61,54,.12);--ink:#0f2a26;--mut:#60756f;--acc:#f26a1b;--acc2:#d4560e;--mint:#8fe0c4;--soft:#e3f6ee;--err:#b3261e;--disp:"Syncopate","Arial Black",sans-serif;--sans:"Lato",system-ui,sans-serif;--ease:cubic-bezier(.33,0,0,1);--r:24px}
 *{box-sizing:border-box}
-body{font-family:var(--sans);background:var(--bg);color:var(--txt);margin:0 auto;max-width:1000px;padding:0 16px 56px;line-height:1.5;font-size:16px}
-#contours{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
-header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:18px 0;margin-bottom:6px}
-h1,h2{font-family:var(--disp);font-weight:700;text-transform:uppercase;line-height:1.1;margin:0;display:flex;flex-wrap:wrap;column-gap:.35em;letter-spacing:.02em}
-h1{font-size:1.5rem}
-h2{font-size:1.15rem;color:var(--ink);margin-bottom:16px}
-h2::before{content:"";width:28px;height:4px;background:var(--acc);border-radius:2px;align-self:center;margin-right:6px}
-h3{font-size:.72rem;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:var(--acc);margin:22px 0 8px}
-.w{display:inline-block;opacity:0;transform:translateY(.35em);transition:opacity .6s var(--ease),transform .6s var(--ease);transition-delay:calc(var(--i)*90ms)}
-.in .w{opacity:1;transform:none}
-#who{font-size:.78rem;font-weight:700;color:var(--mut);margin-right:6px}
-section{margin:18px 0;padding:24px;background:var(--panel);border:1.5px solid var(--ink);border-radius:var(--r);box-shadow:0 2px 0 var(--ink)}
-input,select,textarea{padding:11px 14px;margin:4px 6px 4px 0;font:inherit;color:var(--txt);background:#fff;border:1.5px solid var(--line);border-radius:12px;max-width:100%}
-input::placeholder,textarea::placeholder{color:#8b96a0}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--soft)}
-input[type=checkbox]{margin-right:6px;accent-color:var(--acc)}
-textarea{width:100%;resize:vertical;margin:4px 0}
-button,label.btn{display:inline-block;font:900 .74rem var(--sans);text-transform:uppercase;letter-spacing:.06em;padding:11px 18px;margin:4px 6px 4px 0;border:1.5px solid var(--ink);border-radius:999px;color:var(--ink);background:transparent;cursor:pointer;transition:background 200ms var(--ease),color 200ms var(--ease),transform 200ms var(--ease)}
-button:hover,label.btn:hover{background:var(--ink);color:var(--bg)}
+html,body{margin:0}
+body{font-family:var(--sans);color:var(--ink);line-height:1.5;font-size:15px;min-height:100vh;background:radial-gradient(900px 500px at 10% 0%,#cdeee0 0,transparent 60%),radial-gradient(800px 500px at 100% 100%,#fbe9d8 0,transparent 55%),var(--bg);background-attachment:fixed}
+.shell{display:flex;gap:18px;padding:16px;min-height:100vh}
+.side{position:sticky;top:16px;align-self:flex-start;height:calc(100vh - 32px);width:76px;background:linear-gradient(180deg,var(--side),#0a2c27);border-radius:38px;padding:18px 0;display:flex;flex-direction:column;align-items:center;gap:8px;box-shadow:0 18px 40px rgba(15,61,54,.28)}
+.side .logo{font-family:var(--disp);color:#fff;font-size:1.1rem;margin-bottom:14px;letter-spacing:-.05em}
+.side button{position:relative;width:48px;height:48px;margin:0;padding:0;border:0;border-radius:50%;background:transparent;color:#a9cfc5;font-size:1.25rem;cursor:pointer;transition:all 200ms var(--ease)}
+.side button:hover{background:var(--side2);color:#fff}
+.side button.on{background:var(--mint);color:var(--side);box-shadow:0 0 0 5px rgba(143,224,196,.18)}
+.side button i{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--acc);color:#fff;font:900 .65rem/18px var(--sans);font-style:normal}
+.side .sp{flex:1}
+.side button[title]:hover::after{content:attr(title);position:absolute;left:58px;top:50%;transform:translateY(-50%);background:var(--side);color:#fff;font:700 .75rem var(--sans);padding:5px 10px;border-radius:10px;white-space:nowrap;z-index:5}
+main{flex:1;min-width:0}
+.hero{background:linear-gradient(120deg,var(--side),var(--side2));color:#fff;border-radius:var(--r);padding:26px 30px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:0 14px 30px rgba(15,61,54,.2)}
+.hero h1{font-family:var(--disp);font-size:1.25rem;text-transform:uppercase;margin:0 0 4px;letter-spacing:.02em}
+.hero h1 em{font-style:normal;color:var(--acc)}
+.hero p{margin:0;color:#b9dcd2;font-size:.85rem}
+.hero .date{background:rgba(255,255,255,.12);padding:8px 16px;border-radius:999px;font-weight:700;font-size:.8rem}
+h2{font-family:var(--disp);font-weight:700;text-transform:uppercase;font-size:.95rem;margin:0 0 14px;display:flex;align-items:center;gap:10px;letter-spacing:.02em}
+h2::before{content:"";width:22px;height:4px;background:var(--acc);border-radius:2px}
+.card{background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.9);border-radius:var(--r);padding:22px;margin-top:16px;box-shadow:0 8px 24px rgba(15,61,54,.07);transition:transform 200ms var(--ease),box-shadow 200ms var(--ease)}
+.card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(15,61,54,.11)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-top:16px}
+.kpi{background:var(--panel);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.9);border-radius:var(--r);padding:18px 20px;box-shadow:0 8px 24px rgba(15,61,54,.07)}
+.kpi small{display:block;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.68rem}
+.kpi b{display:block;font-family:var(--disp);font-size:1.5rem;margin:6px 0 2px}
+.kpi span{font-size:.75rem;color:var(--mut)}
+.kpi:nth-child(1) b{color:var(--side)}.kpi:nth-child(2) b{color:var(--acc)}.kpi:nth-child(3) b{color:#1f8a70}
+.row{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:8px 0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+input,select,textarea{padding:10px 14px;margin:4px 6px 4px 0;font:inherit;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:14px;max-width:100%}
+input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(242,106,27,.15)}
+button{font:900 .72rem var(--sans);text-transform:uppercase;letter-spacing:.06em;padding:10px 18px;margin:4px 6px 4px 0;border:0;border-radius:999px;color:#fff;background:var(--side);cursor:pointer;transition:all 200ms var(--ease)}
+button:hover{background:var(--side2);transform:translateY(-1px)}
 button:active{transform:scale(.97)}
-#order,#ckOk,#pay,#login,#register,#go,#add,#planStd,#planPre,#shSave,#verify{background:var(--acc);color:#fff;border-color:var(--acc)}
-#order:hover,#ckOk:hover,#pay:hover,#login:hover,#register:hover,#go:hover,#add:hover,#planStd:hover,#planPre:hover,#shSave:hover,#verify:hover{background:var(--acc2);border-color:var(--acc2);color:#fff}
-#logout,#ckCancel,#chClose,#notifClose,label.btn{border-color:var(--line);color:var(--mut)}
-button:disabled{opacity:.5;cursor:wait}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:16px;margin-top:14px}
-.card{background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:12px;transition:border-color 200ms var(--ease),transform 200ms var(--ease),box-shadow 200ms var(--ease)}
-.card:hover{border-color:var(--ink);transform:translateY(-2px);box-shadow:0 6px 0 rgba(14,34,51,.08)}
-.card p{margin:6px 0}
-.small{font-size:.85em;color:var(--mut)}
-details{margin-top:12px}
-summary{cursor:pointer;color:var(--acc);font-weight:900;text-transform:uppercase;font-size:.8rem}
-dialog{background:var(--panel);color:var(--txt);border:1.5px solid var(--ink);border-radius:var(--r);padding:24px;max-width:460px;width:92%;box-shadow:0 20px 60px rgba(14,34,51,.35)}
-dialog::backdrop{background:rgba(14,34,51,.55);backdrop-filter:blur(3px)}
-dialog input,dialog select{width:100%;margin-right:0}
-.msgs{max-height:260px;overflow:auto;border:1.5px solid var(--line);border-radius:14px;padding:10px;margin:8px 0;background:var(--panel2)}
-.msgs div{margin:4px 0}
-.me{text-align:right;color:var(--acc);font-weight:700}
-#toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:1000;max-width:92%;padding:13px 22px;font-weight:700;border-radius:999px;box-shadow:0 8px 24px rgba(14,34,51,.25)}
-#toast.ok{background:var(--ink);color:#fff}
-#toast.err{background:#fde8e6;color:var(--err);border:1.5px solid var(--err)}
-.ph{width:100%;aspect-ratio:4/3;object-fit:cover;margin-bottom:8px;background:var(--panel2);border-radius:12px}
-.prev{width:140px;height:105px;object-fit:cover;margin:6px 0;border-radius:12px}
-.thumb{width:56px;height:56px;object-fit:cover;vertical-align:middle;margin-right:8px;border-radius:10px}
-.row{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
+#go,#verify{background:var(--acc)}#go:hover,#verify:hover{background:var(--acc2)}
+#logout{background:transparent;color:var(--mut);border:1.5px solid var(--line)}
+button:disabled{opacity:.5}
+.tw{overflow-x:auto;border-radius:16px}
+table{border-collapse:collapse;font-size:.78rem;width:100%;background:#fff}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--soft);white-space:nowrap;position:sticky;top:0;color:var(--side);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
+tr:hover td{background:#fafdfb}
+code{background:var(--soft);color:var(--side);padding:2px 6px;border-radius:6px;word-break:break-all}
+.login{max-width:380px;margin:12vh auto;padding:32px}
+.login h1{font-family:var(--disp);font-size:1.2rem;text-transform:uppercase;margin:0 0 18px}
+.login input{width:100%;margin:6px 0}
 [hidden]{display:none !important}
-.stars{color:var(--acc);letter-spacing:.1em}
-#modeBar{margin:14px 0;padding:6px;background:var(--panel);border:1.5px solid var(--ink);border-radius:999px;display:inline-flex;gap:4px}
-#modeBar button{margin:0;border-color:transparent}
-#modeBar button.on{background:var(--ink);color:var(--bg)}
-#rayons{max-width:780px}
-#rayonGrid button{display:block;width:100%;text-align:left;padding:14px 16px;margin:0;border-radius:16px;text-transform:none;letter-spacing:0;font-weight:400;border-color:var(--line);background:#fff;color:var(--ink)}
-#rayonGrid button b{font-weight:900}
-#rayonGrid button:hover{background:var(--soft);border-color:var(--acc);color:var(--ink)}
-#rayonBar b{color:var(--acc)}
-.logo{width:80px;height:80px;object-fit:contain;background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:4px;display:block;margin-bottom:8px}
-.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:6px 0}
-.desc{white-space:pre-wrap}
-#shopInfo{max-width:560px}
-#logoBox{margin:8px 0}
-.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
-.ph1{position:relative;display:inline-block}
-.ph1 .x{position:absolute;top:-6px;right:-6px;margin:0;padding:0 7px;font-size:1rem;line-height:1.4;border-radius:50%;background:var(--err);color:#fff;border-color:var(--err)}
-.gal{position:relative}
-.gal .nav{position:absolute;top:38%;margin:0;padding:6px 12px;font-size:1.3rem;line-height:1;background:rgba(14,34,51,.7);color:#fff;border-color:transparent}
-.gal .l{left:6px}.gal .r{right:6px}
-.cnt{position:absolute;right:8px;bottom:14px;background:rgba(14,34,51,.75);color:#fff;border-radius:999px;padding:2px 10px;font-size:.72rem}
-.old{color:var(--mut)}.promo{color:var(--acc)}
-.badge{background:var(--acc);color:#fff;padding:2px 9px;border-radius:999px;font-weight:900;font-size:.75rem}
-.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0}
-.kpi{background:var(--panel2);border:1.5px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column}
-.kpi b{font-family:var(--disp);font-size:.95rem;color:var(--acc);margin-bottom:2px}
-.bars{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding:6px 0}
-.bar{display:flex;flex-direction:column;align-items:center;font-size:.65rem;color:var(--mut)}
-.bar i{display:block;width:18px;background:var(--acc);border-radius:6px 6px 0 0}
-body{max-width:900px;padding-top:16px}.tw{overflow-x:auto}table{border-collapse:collapse;font-size:.8rem;width:100%}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:var(--panel2);white-space:nowrap}code{background:var(--soft);color:var(--acc2);padding:2px 6px;border-radius:6px;word-break:break-all}
+.view{display:none}.view.on{display:block;animation:in .45s var(--ease)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:700px){.shell{flex-direction:column;padding:10px}.side{position:static;width:100%;height:auto;flex-direction:row;flex-wrap:wrap;justify-content:center;border-radius:28px;padding:10px}.side .logo,.side .sp{display:none}.side button[title]:hover::after{display:none}}
 </style></head><body>
-<h1>Administration</h1>
-<div id="login">
- <input id="email" type="email" placeholder="E-mail"><br>
- <input id="password" type="password" placeholder="Mot de passe"><br>
- <button id="go">Continuer</button></div>
-<div id="step2" hidden>
- <p id="setup" hidden>Première connexion : dans votre application d'authentification (Google Authenticator, Authy...), ajoutez un compte par saisie manuelle avec cette clé : <code id="secret"></code></p>
- <input id="code" inputmode="numeric" maxlength="6" placeholder="Code à 6 chiffres"><br>
- <button id="verify">Valider</button></div>
-<div id="dash" hidden>
- <button id="logout">Déconnexion</button>
- <h2>Statistiques</h2><p id="stats"></p>
- <h2>Notifications</h2><div id="adminNotifs"></div>
- <h2>Commerçants en attente</h2><div id="pending"></div>
- <h2>Demandes 5 étoiles</h2><div id="starReq"></div>
- <h2>Produits (modération)</h2><div id="arts"></div>
- <h2>Codes promo</h2><div id="promos"></div>
- <h2>Utilisateurs</h2><div id="users"></div>
- <h2>Entreprises</h2><div class="tw" id="dbShops"></div>
- <h2>Articles, stock et prix</h2><div class="tw" id="dbArts"></div>
- <h2>Clients</h2><div class="tw" id="dbClients"></div>
- <h2>Commandes</h2><div class="tw" id="dbOrders"></div>
- <h2>Paiements</h2><div class="tw" id="dbPay"></div>
- <h2>Abonnements</h2><div class="tw" id="dbPlans"></div>
- <h2>Avis</h2><div class="tw" id="dbRev"></div>
- <h2>Messages</h2><div class="tw" id="dbMsg"></div>
- <h2>Journal de toutes les opérations</h2><div class="tw" id="dbLog"></div></div>
+<div id="auth" class="card login">
+ <h1>Administration</h1>
+ <div id="login">
+  <input id="email" type="email" placeholder="E-mail">
+  <input id="password" type="password" placeholder="Mot de passe">
+  <button id="go">Continuer</button></div>
+ <div id="step2" hidden>
+  <p id="setup" hidden>Première connexion : dans votre application d'authentification (Google Authenticator, Authy...), ajoutez un compte par saisie manuelle avec cette clé : <code id="secret"></code></p>
+  <input id="code" inputmode="numeric" maxlength="6" placeholder="Code à 6 chiffres">
+  <button id="verify">Valider</button></div>
+</div>
+
+<div id="dash" class="shell" hidden>
+ <nav class="side" id="nav">
+  <div class="logo">//</div>
+  <button data-v="home" class="on" title="Accueil">⌂</button>
+  <button data-v="valid" title="Validations">✓<i id="bValid" hidden></i></button>
+  <button data-v="prod" title="Produits">▣</button>
+  <button data-v="promo" title="Codes promo">％</button>
+  <button data-v="users" title="Utilisateurs">☺</button>
+  <button data-v="data" title="Base de données">☰</button>
+  <button data-v="log" title="Journal">⏱</button>
+  <div class="sp"></div>
+  <button id="logoutIcon" title="Déconnexion">⎋</button>
+ </nav>
+ <main>
+  <div class="hero">
+   <div><h1>Tableau de <em>bord</em></h1><p>Pilotez votre marketplace en un coup d'œil</p></div>
+   <div><span class="date" id="today"></span> <button id="logout">Déconnexion</button></div>
+  </div>
+
+  <section class="view on" id="v-home">
+   <div class="kpis" id="kpis"></div>
+   <div class="card"><h2>Notifications</h2><div id="adminNotifs"></div></div>
+  </section>
+
+  <section class="view" id="v-valid">
+   <div class="cols">
+    <div class="card"><h2>Commerçants en attente</h2><div id="pending"></div></div>
+    <div class="card"><h2>Demandes 5 étoiles</h2><div id="starReq"></div></div>
+   </div>
+  </section>
+
+  <section class="view" id="v-prod"><div class="card"><h2>Produits (modération)</h2><div id="arts"></div></div></section>
+  <section class="view" id="v-promo"><div class="card"><h2>Codes promo</h2><div id="promos"></div></div></section>
+  <section class="view" id="v-users"><div class="card"><h2>Utilisateurs</h2><div id="users"></div></div></section>
+
+  <section class="view" id="v-data">
+   <div class="card"><h2>Entreprises</h2><div class="tw" id="dbShops"></div></div>
+   <div class="card"><h2>Articles, stock et prix</h2><div class="tw" id="dbArts"></div></div>
+   <div class="card"><h2>Clients</h2><div class="tw" id="dbClients"></div></div>
+   <div class="card"><h2>Commandes</h2><div class="tw" id="dbOrders"></div></div>
+   <div class="card"><h2>Paiements</h2><div class="tw" id="dbPay"></div></div>
+   <div class="card"><h2>Abonnements</h2><div class="tw" id="dbPlans"></div></div>
+   <div class="card"><h2>Avis</h2><div class="tw" id="dbRev"></div></div>
+   <div class="card"><h2>Messages</h2><div class="tw" id="dbMsg"></div></div>
+  </section>
+
+  <section class="view" id="v-log"><div class="card"><h2>Journal de toutes les opérations</h2><div class="tw" id="dbLog"></div></div></section>
+ </main>
+</div>
 <script src="/admin.js"></script></body></html>

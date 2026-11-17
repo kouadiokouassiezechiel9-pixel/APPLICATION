@@ -14,14 +14,20 @@ const table = (rows, empty) => !rows.length ? el('p', {}, empty)
       el('tbody', {}, ...rows.map(r => el('tr', {}, ...Object.values(r).map(v => el('td', {}, String(fmt(v))))))));
 
 async function dash() {
-  $('#login').hidden = $('#step2').hidden = true; $('#dash').hidden = false;
+  $('#auth').hidden = true; $('#dash').hidden = false;
+  $('#today').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const s = await api('admin/stats');
-  $('#stats').textContent = s.users + ' utilisateurs · ' + s.orders + ' commandes · ' + Number(s.revenue).toLocaleString('fr-FR') + ' francs encaissés (abonnements)';
+  const kpi = (l, v, n) => el('div', { className: 'kpi' }, el('small', {}, l), el('b', {}, String(v)), el('span', {}, n));
+  $('#kpis').replaceChildren(
+    kpi('Utilisateurs', s.users, 'comptes inscrits'),
+    kpi('Commandes', s.orders, 'au total'),
+    kpi('Encaissé', Number(s.revenue).toLocaleString('fr-FR'), 'francs (abonnements)'));
   const pend = await api('admin/merchants/pending');
   $('#pending').replaceChildren(...(pend.length ? pend : [null]).map(m => m
     ? el('div', { className: 'row' }, m.shop_name + ' - ' + m.name + ' (' + m.email + ') ',
         el('button', { onclick: run(async () => { await api('admin/merchants/' + m.id + '/validate', 'POST', {}); await dash(); }) }, 'Valider'))
     : el('p', {}, 'Aucun commerçant en attente.')));
+  const nb = $('#bValid'); nb.textContent = pend.length; nb.hidden = !pend.length;
   const nt = await api('notifications');
   $('#adminNotifs').replaceChildren(...(nt.items.length ? nt.items.slice(0, 10) : [null]).map(n => n ? el('div', { className: 'row' }, (n.read ? '' : '● ') + n.title + (n.body ? ' — ' + n.body : '')) : el('p', {}, 'Aucune notification.')));
   if (nt.unread) await api('notifications/read', 'POST', {});
@@ -71,5 +77,10 @@ $('#go').onclick = run(async () => {
   if (r.step === 'setup') $('#secret').textContent = r.secret;
 });
 $('#verify').onclick = run(async () => { await api('admin/2fa', 'POST', { code: $('#code').value }); $('#code').value = ''; await dash(); });
+document.querySelectorAll('#nav button[data-v]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#nav button[data-v]').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + b.dataset.v));
+});
+$('#logoutIcon').onclick = () => $('#logout').click();
 $('#logout').onclick = run(async () => { await api('logout', 'POST', {}); location.reload(); });
 api('me').then(m => { if (m.role === 'admin') dash(); }).catch(() => {});
