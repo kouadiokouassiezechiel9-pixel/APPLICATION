@@ -299,13 +299,14 @@ const notifyOnce = (db, userId, kind, title, body, ref) => db.query(
   `INSERT INTO notifications(user_id,kind,title,body,ref) SELECT $1::int,$2::text,$3::text,$4::text,$5::text
    WHERE NOT EXISTS (SELECT 1 FROM notifications WHERE user_id=$1::int AND kind=$2::text AND ref=$5::text AND NOT read)`, [userId, kind, title, body || null, ref || null]).catch(() => {});
 const notifyAdmins = (db, title, body) => db.query("INSERT INTO notifications(user_id,kind,title,body) SELECT id,'admin',$1::text,$2::text FROM users WHERE role='admin'", [title, body || null]).catch(() => {});
+async function notifyNewOrder(id, clientId, cod) {
+  const rows = (await pool.query('SELECT a.merchant_id, count(*)::int AS n, sum(oi.qty*oi.unit_price)::int AS total FROM order_items oi JOIN articles a ON a.id=oi.article_id WHERE oi.order_id=$1 GROUP BY a.merchant_id', [id])).rows;
+  for (const r of rows) await notify(pool, r.merchant_id, 'order', 'Nouvelle commande #' + id, r.n + ' article' + (r.n > 1 ? 's' : '') + ' · ' + r.total + ' francs · ' + (cod ? 'demande de paiement à la livraison (à encaisser à la livraison)' : 'payée'));
+  await notify(pool, clientId, 'order', cod ? 'Demande envoyée' : 'Paiement reçu', 'Votre commande #' + id + ' a été transmise aux boutiques.' + (cod ? ' Vous paierez à la livraison.' : ''));
+}
 async function notifyPayment(p) {
-  if (p.kind === 'order') {
-    const id = p.ref.orderId;
-    const rows = (await pool.query('SELECT a.merchant_id, count(*)::int AS n, sum(oi.qty*oi.unit_price)::int AS total FROM order_items oi JOIN articles a ON a.id=oi.article_id WHERE oi.order_id=$1 GROUP BY a.merchant_id', [id])).rows;
-    for (const r of rows) await notify(pool, r.merchant_id, 'order', 'Nouvelle commande #' + id, r.n + ' article' + (r.n > 1 ? 's' : '') + ' · ' + r.total + ' francs · acompte payé');
-    await notify(pool, p.user_id, 'order', 'Acompte reçu', 'Votre commande #' + id + ' a été transmise aux boutiques.');
-  } else if (p.kind === 'plan') await notify(pool, p.user_id, 'billing', 'Abonnement mensuel activé', 'Votre boutique est visible pendant 30 jours.');
+  if (p.kind === 'order') await notifyNewOrder(p.ref.orderId, p.user_id, false);
+  else if (p.kind === 'plan') await notify(pool, p.user_id, 'billing', 'Abonnement mensuel activé', 'Votre boutique est visible pendant 30 jours.');
   else if (p.kind === 'articles') await notify(pool, p.user_id, 'billing', 'Capacité d\'articles activée', 'Vous pouvez ajouter vos articles.');
   else if (p.kind === 'stars') await notify(pool, p.user_id, 'stars', 'Boutique 5 étoiles', 'Félicitations, votre boutique passe à 5 étoiles.');
 }
@@ -325,7 +326,7 @@ app.get('/api/articles', wrap(async (req, res) => {
     `SELECT * FROM (
        SELECT a.id,a.name,a.description,a.details,a.price,a.stock,a.category,(SELECT COALESCE(json_agg(p.id ORDER BY p.position,p.id),'[]'::json) FROM article_photos p WHERE p.article_id=a.id) AS photos,
          (CASE WHEN a.promo_price IS NOT NULL AND (a.promo_until IS NULL OR a.promo_until >= current_date) THEN a.promo_price END) AS promo_price,
-         m.whatsapp,m.shop_name,m.user_id AS merchant_id,m.stars,
+         m.whatsapp,m.shop_name,m.user_id AS merchant_id,m.stars,m.pay_policy,
          (SELECT round(avg(r.score)::numeric,1)::float FROM reviews r WHERE r.merchant_id=m.user_id) AS rating,
          EXISTS (SELECT 1 FROM plans p WHERE p.merchant_id=m.user_id AND p.tier='premium' AND p.status='active' AND p.expires_at>now()) AS premium,
          (${score}) AS score
@@ -342,14 +343,17 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
     customerName: z.string().trim().min(2).max(100),
     customerPhone: z.string().trim().min(8).max(20),
     deliveryLocation: z.string().trim().min(3).max(300),
-    paymentMethod: z.literal('wave'),
+    paymentMethod: z.enum(['wave', 'cod']),
     items: z.array(z.object({
       id: z.number().int(), qty: z.number().int().min(1).max(100) })).min(1).max(50) }), req, res);
   if (!d) return;
   if ((await pool.query('SELECT 1 FROM articles WHERE id = ANY($1::int[]) AND merchant_id=$2 LIMIT 1', [d.items.map(i => i.id), req.user.id])).rowCount)
     return res.status(400).json({ error: 'Vous ne pouvez pas commander vos propres articles' });
   try {
+    const cod = d.paymentMethod === 'cod';
     const out = await tx(async c => {
+      // Paiement à la livraison : seulement si TOUTES les boutiques du panier l'acceptent
+      if (cod && (await c.query("SELECT 1 FROM merchants WHERE user_id IN (SELECT merchant_id FROM articles WHERE id = ANY($1::int[])) AND pay_policy<>'delivery' LIMIT 1", [d.items.map(i => i.id)])).rowCount) throw new Error('NOCOD');
       const o = (await c.query('INSERT INTO orders(client_id,customer_name,customer_phone,delivery_location,payment_method) VALUES($1,$2,$3,$4,$5) RETURNING id', [req.user.id, d.customerName, d.customerPhone, d.deliveryLocation, d.paymentMethod])).rows[0];
       let total = 0;
       for (const it of [...d.items].sort((a, b) => a.id - b.id)) {
@@ -364,12 +368,16 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
         await c.query('INSERT INTO order_items(order_id,article_id,qty,unit_price) VALUES($1,$2,$3,$4)',
           [o.id, it.id, it.qty, r.rows[0].price]);
       }
-      const deposit = Math.ceil(total / 2); // acompte de 50 % payé sur Wave, le reste à la livraison
-      await c.query('UPDATE orders SET total=$1, deposit=$2 WHERE id=$3', [total, deposit, o.id]);
-      return { id: o.id, total, deposit, balance: total - deposit };
+      // Wave : paiement intégral à la commande (deposit = montant payé). Livraison : demande du client, rien payé pour l'instant.
+      await c.query('UPDATE orders SET total=$1, deposit=$2, payment_status=$3 WHERE id=$4', [total, cod ? 0 : total, cod ? 'cod' : 'unpaid', o.id]);
+      return { id: o.id, total };
     });
+    if (cod) {
+      notifyNewOrder(out.id, req.user.id, true).catch(() => {});
+      return res.status(201).json({ ...out, cod: true });
+    }
     try {
-      const pay = await startPayment(req.user.id, 'order', out.deposit, { orderId: out.id });
+      const pay = await startPayment(req.user.id, 'order', out.total, { orderId: out.id });
       return res.status(201).json({ ...out, ...pay });
     } catch (e) {
       await releaseOrder(out.id);
@@ -378,6 +386,7 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
     }
   } catch (e) {
     if (e.message === 'STOCK') return res.status(409).json({ error: 'Stock insuffisant ou article indisponible' });
+    if (e.message === 'NOCOD') return res.status(409).json({ error: 'Une boutique de votre panier exige le paiement avant la livraison (Wave).' });
     throw e;
   }
 }));
@@ -385,7 +394,7 @@ app.post('/api/orders', auth('client', 'merchant'), wrap(async (req, res) => {
 // ---------- Commerçant ----------
 app.get('/api/merchant/me', auth('merchant'), wrap(async (req, res) => {
   const r = await pool.query(
-    `SELECT m.validated, m.shop_name, m.location, m.description, m.whatsapp, (m.logo IS NOT NULL) AS has_logo,
+    `SELECT m.validated, m.shop_name, m.location, m.description, m.whatsapp, m.pay_policy, (m.logo IS NOT NULL) AS has_logo,
        CASE WHEN m.since_year IS NULL THEN NULL ELSE GREATEST(0, EXTRACT(YEAR FROM now())::int - m.since_year) END AS years,
        m.stars, m.star_request,
        (SELECT count(*)::int FROM reviews r WHERE r.merchant_id=m.user_id) AS reviews,
@@ -515,7 +524,7 @@ app.post('/api/merchant/articles/:id/promo', auth('merchant'), wrap(async (req, 
 }));
 // ---- Statistiques du commerçant ----
 app.get('/api/merchant/stats', auth('merchant'), wrap(async (req, res) => {
-  const base = "FROM order_items oi JOIN articles a ON a.id=oi.article_id JOIN orders o ON o.id=oi.order_id WHERE a.merchant_id=$1 AND o.payment_status='paid'", id = [req.user.id];
+  const base = "FROM order_items oi JOIN articles a ON a.id=oi.article_id JOIN orders o ON o.id=oi.order_id WHERE a.merchant_id=$1 AND o.payment_status IN ('paid','cod')", id = [req.user.id];
   const tot = (await pool.query(
     `SELECT count(DISTINCT o.id)::int AS orders, COALESCE(sum(oi.qty),0)::int AS items, COALESCE(sum(oi.qty*oi.unit_price),0)::int AS revenue,
             COALESCE(sum(oi.qty*oi.unit_price) FILTER (WHERE o.created_at >= now() - interval '7 days'),0)::int AS d7,
@@ -596,12 +605,12 @@ app.get('/api/admin/stats', auth('admin'), wrap(async (req, res) => {
 // ---------- Commandes reçues (commerçant) ----------
 app.get('/api/merchant/orders', auth('merchant'), wrap(async (req, res) => {
   const r = await pool.query(
-    `SELECT o.id, o.created_at, o.customer_name, o.customer_phone, o.delivery_location, o.payment_method,
+    `SELECT o.id, o.created_at, o.customer_name, o.customer_phone, o.delivery_location, o.payment_method, o.payment_status,
             oi.status, sum(oi.qty*oi.unit_price)::int AS total,
             json_agg(json_build_object('name', a.name, 'qty', oi.qty, 'unit_price', oi.unit_price)) AS items
      FROM order_items oi JOIN articles a ON a.id=oi.article_id JOIN orders o ON o.id=oi.order_id
-     WHERE a.merchant_id=$1 AND o.payment_status='paid' GROUP BY o.id, oi.status ORDER BY o.id DESC LIMIT 100`, [req.user.id]);
-  res.json(r.rows.map(o => ({ ...o, deposit: Math.ceil(o.total / 2), balance: o.total - Math.ceil(o.total / 2) })));
+     WHERE a.merchant_id=$1 AND o.payment_status IN ('paid','cod') GROUP BY o.id, oi.status ORDER BY o.id DESC LIMIT 100`, [req.user.id]);
+  res.json(r.rows);
 }));
 app.post('/api/merchant/orders/:id/status', auth('merchant'), wrap(async (req, res) => {
   const d = parse(z.object({ status: z.enum(['pending', 'preparing', 'delivered']) }), req, res);
@@ -610,6 +619,8 @@ app.post('/api/merchant/orders/:id/status', auth('merchant'), wrap(async (req, r
     'UPDATE order_items oi SET status=$1 FROM articles a WHERE a.id=oi.article_id AND a.merchant_id=$2 AND oi.order_id=$3',
     [d.status, req.user.id, +req.params.id || 0]);
   if (!r.rowCount) return res.status(404).json({ error: 'Commande introuvable' });
+  if (d.status === 'delivered') // commande à payer à la livraison : payée dès que toutes les boutiques ont livré
+    await pool.query("UPDATE orders SET payment_status='paid' WHERE id=$1 AND payment_status='cod' AND NOT EXISTS (SELECT 1 FROM order_items WHERE order_id=$1 AND status<>'delivered')", [+req.params.id || 0]);
   if (d.status !== 'pending') {
     const oid = +req.params.id || 0, o = (await pool.query('SELECT client_id FROM orders WHERE id=$1', [oid])).rows[0];
     const sh = (await pool.query('SELECT shop_name FROM merchants WHERE user_id=$1', [req.user.id])).rows[0];
@@ -725,13 +736,14 @@ app.post('/api/merchant/logo', auth('merchant'), express.raw({ type: 'image/jpeg
 app.post('/api/merchant/profile', auth('merchant'), wrap(async (req, res) => {
   const d = parse(z.object({ shopName: z.string().trim().min(2).max(80), location: z.string().trim().max(120).optional(),
     description: z.string().trim().max(1000).optional(), years: z.number().int().min(0).max(100).optional(),
-    whatsapp: z.string().trim().max(20).regex(/^[0-9+ ]*$/, 'Numéro WhatsApp invalide').optional() }), req, res);
+    whatsapp: z.string().trim().max(20).regex(/^[0-9+ ]*$/, 'Numéro WhatsApp invalide').optional(),
+    payPolicy: z.enum(['before', 'delivery']).optional() }), req, res);
   if (!d) return;
   if (isBanned(d.shopName, d.description))
     return res.status(422).json({ error: 'Cette présentation mentionne un produit interdit à la vente en Côte d\'Ivoire.' });
   const since = d.years === undefined ? null : new Date().getFullYear() - d.years;   // l'ancienneté reste exacte d'année en année
-  await pool.query('UPDATE merchants SET shop_name=$1, location=$2, description=$3, since_year=$4, whatsapp=$5 WHERE user_id=$6',
-    [d.shopName, d.location || null, d.description || null, since, d.whatsapp || null, req.user.id]);
+  await pool.query('UPDATE merchants SET shop_name=$1, location=$2, description=$3, since_year=$4, whatsapp=$5, pay_policy=COALESCE($7, pay_policy) WHERE user_id=$6',
+    [d.shopName, d.location || null, d.description || null, since, d.whatsapp || null, req.user.id, d.payPolicy || null]);
   res.json({ ok: true });
 }));
 // Le client note la boutique une fois la commande livrée (une note par commande et par boutique)
@@ -741,7 +753,7 @@ app.post('/api/orders/:id/review', auth('client', 'merchant'), wrap(async (req, 
   const oid = +req.params.id || 0;
   const ok = (await pool.query(
     `SELECT 1 FROM order_items oi JOIN articles a ON a.id=oi.article_id JOIN orders o ON o.id=oi.order_id
-     WHERE o.id=$1 AND o.client_id=$2 AND o.payment_status='paid' AND a.merchant_id=$3 AND a.merchant_id<>$2 AND oi.received_at IS NOT NULL LIMIT 1`,
+     WHERE o.id=$1 AND o.client_id=$2 AND o.payment_status IN ('paid','cod') AND a.merchant_id=$3 AND a.merchant_id<>$2 AND oi.received_at IS NOT NULL LIMIT 1`,
     [oid, req.user.id, d.merchantId])).rows[0];
   if (!ok) return res.status(403).json({ error: 'Confirmez d\'abord la réception de votre commande, puis vous pourrez noter la boutique' });
   const ins = await pool.query(

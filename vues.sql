@@ -7,7 +7,8 @@ SELECT m.user_id AS id, m.shop_name AS entreprise, u.name AS proprietaire, u.ema
        count(a.id)::int AS nb_articles,
        count(a.id) FILTER (WHERE a.online AND a.moderation='ok')::int AS nb_articles_en_ligne,
        COALESCE(sum(a.stock),0)::int AS stock_total,
-       u.created_at AS inscrit_le
+       u.created_at AS inscrit_le,
+       CASE WHEN m.pay_policy='delivery' THEN 'accepte paiement a la livraison' ELSE 'paiement avant livraison' END AS politique_paiement
 FROM merchants m JOIN users u ON u.id=m.user_id LEFT JOIN articles a ON a.merchant_id=m.user_id
 GROUP BY m.user_id, u.id;
 

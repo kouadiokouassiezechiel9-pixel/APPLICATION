@@ -102,7 +102,7 @@ async function refresh() {
   if (buying) await loadMyOrders();
 }
 const STATUS = { pending: 'en attente', preparing: 'en préparation', delivered: 'livrée' };
-const PAY = { wave: 'Wave' };
+const PAY = { wave: 'Wave', cod: 'à la livraison' };
 async function loadMyOrders() {
   const l = await api('orders/mine');
   $('#mo').replaceChildren(...(l.length ? l : [null]).map(o => {
@@ -118,7 +118,7 @@ async function loadMyOrders() {
         el('button', { onclick: run(async () => { await api('orders/' + o.id + '/review', 'POST', { merchantId: mid, score: +sel.value }); say('Merci pour votre note !'); await loadMyOrders(); }) }, 'Envoyer la note'));
     });
     return el('div', { className: 'card' },
-      el('b', {}, 'Commande #' + o.id + ' - ' + fmt(o.total) + ' - ' + (o.payment_status === 'paid' ? 'acompte ' + fmt(o.deposit) + ' payé, reste ' + fmt(o.total - o.deposit) + ' à la livraison' : o.payment_status === 'unpaid' ? 'en attente du paiement Wave de l\'acompte' : 'annulée')),
+      el('b', {}, 'Commande #' + o.id + ' - ' + fmt(o.total) + ' - ' + (o.payment_status === 'paid' ? (o.payment_method === 'cod' ? 'payée à la livraison' : 'payée') : o.payment_status === 'cod' ? 'à payer à la livraison : ' + fmt(o.total) : o.payment_status === 'unpaid' ? 'en attente du paiement Wave' : 'annulée')),
       el('p', { className: 'small' }, o.items.map(i => i.name + ' ×' + i.qty + ' (' + STATUS[i.status] + ')').join(', ') + ' · ' + o.delivery_location),
       ...notes);
   }));
@@ -202,7 +202,7 @@ function drawStars(m) {
   $('#starsBox').replaceChildren(...kids);
 }
 const money = n => Number(n).toLocaleString('fr-FR') + ' F';
-const addToCart = a => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.promo_price || a.price, qty: 1 }); drawCart(); say(a.name + ' ajouté au panier.'); };
+const addToCart = a => { const c = cart.find(x => x.id === a.id); c ? c.qty++ : cart.push({ id: a.id, name: a.name, price: a.promo_price || a.price, qty: 1, cod: a.pay_policy === 'delivery' }); drawCart(); say(a.name + ' ajouté au panier.'); };
 function productCard(a) {
   const own = me && a.merchant_id === me.id, pct = a.promo_price ? Math.round((1 - a.promo_price / a.price) * 100) : 0;
   return el('article', { className: 'pc' },
@@ -339,7 +339,7 @@ async function loadMerchant() {
   const od = await api('merchant/orders');
   $('#morders').replaceChildren(...(od.length ? od : [null]).map(o => o ? el('div', { className: 'card' },
     el('b', {}, 'Commande #' + o.id + ' - ' + fmt(o.total) + ' - ' + STATUS[o.status]),
-    el('p', {}, 'Acompte payé : ' + fmt(o.deposit) + ' · À encaisser à la livraison : ' + fmt(o.balance)),
+    el('p', {}, o.payment_status === 'cod' ? 'À encaisser à la livraison : ' + fmt(o.total) + ' (le client a demandé à payer à la livraison)' : o.payment_method === 'cod' ? 'Payée à la livraison.' : 'Payée en totalité sur Wave : rien à encaisser à la livraison.'),
     el('p', {}, o.items.map(i => i.name + ' ×' + i.qty).join(', ')),
     el('p', { className: 'small' }, o.customer_name + ' · ' + o.customer_phone + ' · ' + o.delivery_location + ' · paiement ' + PAY[o.payment_method]),
     ...['pending', 'preparing', 'delivered'].filter(s => s !== o.status).map(s => el('button', { onclick: run(async () => { await api('merchant/orders/' + o.id + '/status', 'POST', { status: s }); await loadMerchant(); }) }, '→ ' + STATUS[s]))) : el('p', {}, 'Aucune commande reçue.')));
@@ -350,13 +350,13 @@ $('#go').onclick = run(search);
 let shopDirty = false;
 function fillShop(m) {
   if (shopDirty) return;   // ne pas écraser ce que le commerçant est en train de taper
-  $('#shName').value = m.shop_name || ''; $('#shLoc').value = m.location || ''; $('#shWa').value = m.whatsapp || '';
+  $('#shName').value = m.shop_name || ''; $('#shLoc').value = m.location || ''; $('#shWa').value = m.whatsapp || ''; $('#shPay').value = m.pay_policy || 'before';
   $('#shYears').value = m.years == null ? '' : m.years; $('#shDesc').value = m.description || '';
   const p = $('#logoPrev'); p.hidden = !m.has_logo; if (m.has_logo) p.src = '/api/merchant/logo?v=' + Date.now();
 }
 $('#shopForm').oninput = () => { shopDirty = true; };
 $('#shSave').onclick = run(async () => {
-  await api('merchant/profile', 'POST', { shopName: $('#shName').value, location: $('#shLoc').value || undefined, whatsapp: $('#shWa').value || undefined,
+  await api('merchant/profile', 'POST', { shopName: $('#shName').value, location: $('#shLoc').value || undefined, whatsapp: $('#shWa').value || undefined, payPolicy: $('#shPay').value,
     description: $('#shDesc').value || undefined, years: $('#shYears').value === '' ? undefined : +$('#shYears').value });
   shopDirty = false; say('Votre boutique a été enregistrée.'); await loadMerchant();
 });
@@ -400,17 +400,23 @@ $('#logout').onclick = run(async () => { await api('logout', 'POST', {}); cart =
 $('#order').onclick = run(async () => {
   if (!me || me.role === 'admin') { if (!me) { authMode(false); $('#auth').scrollIntoView({ behavior: 'smooth' }); } throw new Error('Connectez-vous ou créez un compte pour commander (votre panier est conservé).'); }
   if (!cart.length) throw new Error('Panier vide');
-  $('#ckName').value = me.name; const tot = cart.reduce((n, c) => n + c.price * c.qty, 0), dep = Math.ceil(tot / 2);
-  $('#ckTotal').textContent = 'Total : ' + fmt(tot) + ' · À payer maintenant sur Wave (50 %) : ' + fmt(dep) + ' · Reste à payer à la livraison : ' + fmt(tot - dep);
+  $('#ckName').value = me.name; const tot = cart.reduce((n, c) => n + c.price * c.qty, 0);
+  const canCod = cart.every(c => c.cod);
+  $('#ckTotal').textContent = 'Total : ' + fmt(tot);
+  document.querySelector('input[name=ckPay][value=wave]').checked = true;
+  document.querySelector('input[name=ckPay][value=cod]').disabled = !canCod;
+  $('#ckCodNote').textContent = canCod ? 'Votre demande sera envoyée aux boutiques ; vous paierez ' + fmt(tot) + ' à la livraison.' : 'Le paiement à la livraison n\'est pas proposé : une boutique de votre panier demande le paiement avant la livraison.';
+  $('#ckOk').textContent = 'Payer avec Wave';
   $('#checkout').showModal();
 });
 $('#ckCancel').onclick = () => $('#checkout').close();
+document.querySelectorAll('input[name=ckPay]').forEach(r => r.onchange = () => { $('#ckOk').textContent = r.value === 'cod' && r.checked ? 'Envoyer ma demande' : 'Payer avec Wave'; });
 $('#ckOk').onclick = run(async () => {
   const r = await api('orders', 'POST', { items: cart.map(c => ({ id: c.id, qty: c.qty })), customerName: $('#ckName').value,
-    customerPhone: $('#ckPhone').value, deliveryLocation: $('#ckLoc').value, paymentMethod: 'wave' });
+    customerPhone: $('#ckPhone').value, deliveryLocation: $('#ckLoc').value, paymentMethod: document.querySelector('input[name=ckPay]:checked').value });
   $('#checkout').close(); cart = [];
   if (r.payUrl) { location.href = r.payUrl; return; } // paiement sur Wave
-  drawCart(); say('Commande #' + r.id + ' payée (mode test).'); await search(); await loadMyOrders();
+  drawCart(); say(r.cod ? 'Commande #' + r.id + ' envoyée aux boutiques : vous paierez ' + fmt(r.total) + ' à la livraison.' : 'Commande #' + r.id + ' payée (mode test).'); await search(); await loadMyOrders();
 });
 $('#promoApply').onclick = run(async () => { const c = $('#promoCode').value.trim(); if (!c) throw new Error('Saisissez un code promo'); await api('merchant/promo', 'POST', { code: c }); $('#promoCode').value = ''; say('Code promo appliqué.'); await loadMerchant(); });
 $('#planStd').onclick = run(async () => { goPay(await api('merchant/plan', 'POST', { tier: 'standard' })); });

@@ -6,14 +6,15 @@ VISITEUR / TOUT LE MONDE
 - Voir la liste des boutiques, la fiche d'une boutique et son logo
 
 CLIENT
-- Commander (panier), payer par Wave (acompte / paiement), annulation auto apres 35 min sans paiement
+- Commander (panier) : payer la totalite par Wave, ou envoyer une demande de paiement a la livraison si la boutique l'accepte
+- Annulation auto apres 35 min sans paiement Wave
 - Voir ses commandes, confirmer la reception d'un article
 - Laisser un avis (note 1 a 5 + commentaire) sur un commercant apres reception
 - Ecrire aux commercants, lire ses conversations
 - Lire ses notifications
 
 COMMERCANT
-- Gerer sa boutique : profil, description, localite, WhatsApp, logo
+- Gerer sa boutique : profil, description, localite, WhatsApp, logo, politique de paiement (avant livraison ou paiement a la livraison accepte)
 - Ajouter / supprimer des articles (5 gratuits), ajouter / supprimer des photos (20 max), mettre un prix promo
 - Payer un abonnement Standard ou Premium (avec ou sans code promo), souscrire un pack d'articles
 - Voir ses statistiques et les commandes recues, changer le statut d'une ligne (en attente / en preparation / livre)

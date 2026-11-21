@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS promo_codes(
   max_uses INT, uses INT NOT NULL DEFAULT 0, active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now());
 ALTER TABLE merchants ADD COLUMN IF NOT EXISTS promo_code_id INT REFERENCES promo_codes(id);
+-- Politique de paiement de la boutique : 'before' = Wave obligatoire avant livraison ; 'delivery' = le client peut demander à payer à la livraison
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS pay_policy TEXT NOT NULL DEFAULT 'before';
 
 -- ===== CORRECTIONS (index, e-mails, contraintes) - rejouables sans risque =====
 CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
@@ -91,6 +93,9 @@ CREATE INDEX IF NOT EXISTS idx_order_items_article ON order_items(article_id);
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_merchant ON subscriptions(merchant_id);
 CREATE INDEX IF NOT EXISTS idx_articles_public ON articles(online, moderation);
+
+-- 'cod' = commande envoyée par le client, à payer à la livraison (la contrainte est recréée pour accepter cette valeur)
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS chk_orders_payment_status;
 
 DO $$
 DECLARE c RECORD;
@@ -105,7 +110,8 @@ BEGIN
     ('chk_articles_moderation','articles','CHECK (moderation IN (''ok'',''removed''))'),
     ('chk_users_status','users','CHECK (status IN (''active'',''suspended''))'),
     ('chk_order_items_status','order_items','CHECK (status IN (''pending'',''preparing'',''delivered''))'),
-    ('chk_orders_payment_status','orders','CHECK (payment_status IN (''unpaid'',''paid'',''expired''))')
+    ('chk_orders_payment_status','orders','CHECK (payment_status IN (''unpaid'',''paid'',''expired'',''cod''))'),
+    ('chk_merchants_pay_policy','merchants','CHECK (pay_policy IN (''before'',''delivery''))')
   ) AS t(n,tbl,def) LOOP
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = c.n) THEN
